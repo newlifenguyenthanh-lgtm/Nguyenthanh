@@ -85,3 +85,27 @@ class AuditLog(Base):
     entity: Mapped[str] = mapped_column(String(64))
     entity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     detail: Mapped[dict | None] = mapped_column(JSON)
+
+
+class Document(Base):
+    """Logical document; content lives in immutable DocumentVersion rows."""
+    __tablename__ = "documents"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    project_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("projects.id"), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    kind: Mapped[str] = mapped_column(String(32), default="other")  # drawing | boq | quote | contract | email | other
+    current_version: Mapped[int] = mapped_column(default=1)
+
+
+class DocumentVersion(Base):
+    __tablename__ = "document_versions"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    document_id: Mapped[uuid.UUID] = fk("documents")
+    version_no: Mapped[int]
+    filename: Mapped[str] = mapped_column(String(255))
+    content_type: Mapped[str] = mapped_column(String(128), default="application/octet-stream")
+    size_bytes: Mapped[int]
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    storage_key: Mapped[str] = mapped_column(String(255))
+    note: Mapped[str] = mapped_column(String(500), default="")
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))

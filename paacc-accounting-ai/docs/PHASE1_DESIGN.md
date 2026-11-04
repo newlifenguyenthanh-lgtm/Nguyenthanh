@@ -41,7 +41,8 @@ Heavy jobs (PDF/OCR/CAD) via Celery+Redis later. CAD: DXF via `ezdxf` first (cro
 Frontend: React + TS (Vite), Vietnamese UI, next increment.
 
 ## Status vs roadmap
-- Phase 1: this document. Phase 2: backend foundation done (auth, RBAC, audit, projects, partners, contracts+appendices with approval); **frontend not started**; Alembic migrations not yet (tables created via `create_all`).
+- Phase 1: this document. Phase 2: backend foundation done (auth, RBAC, audit, projects, partners, contracts+appendices with approval); Alembic migration `0001` added.
+- Phase 3 (in progress): versioned, SHA-256 content-addressed document store with duplicate detection (done); React/TS Vietnamese shell with login, projects, documents (done, minimal). Not yet: project dashboard, document preview, contracts UI, S3 storage, virus scanning.
 - Phases 3-12: not started.
 
 ## Known limitations / open questions

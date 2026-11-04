@@ -1,11 +1,11 @@
-"""Bootstrap: python -m app.cli create-admin --company "Công ty Phương Anh" --email x --password-env VAR"""
+"""Bootstrap (run `alembic upgrade head` first): python -m app.cli create-admin --company "Công ty Phương Anh" --email x --password-env VAR"""
 import argparse
 import os
 
 from sqlalchemy.orm import Session
 
 from app.db import get_engine
-from app.models import Base, Company, User
+from app.models import Company, User
 from app.security import hash_password
 
 
@@ -25,7 +25,6 @@ def main():
     ap.add_argument("--email", required=True)
     ap.add_argument("--password-env", required=True, help="name of env var holding the password")
     a = ap.parse_args()
-    Base.metadata.create_all(get_engine())
     with Session(get_engine()) as db:
         create_admin(db, a.company, a.email, os.environ[a.password_env])
     print("admin created")

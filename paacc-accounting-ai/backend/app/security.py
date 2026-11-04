@@ -13,10 +13,10 @@ _N, _R, _P = 2**14, 8, 1
 ROLE_PERMS: dict[str, set[str]] = {
     "admin": {"*"},
     "director": {"project:read", "project:write", "contract:read", "contract:write",
-                 "contract:approve", "partner:read", "partner:write", "audit:read"},
-    "accountant": {"project:read", "contract:read", "contract:write", "partner:read", "partner:write"},
-    "site_manager": {"project:read", "project:write", "contract:read", "partner:read"},
-    "viewer": {"project:read", "contract:read", "partner:read"},
+                 "contract:approve", "partner:read", "partner:write", "audit:read", "document:read", "document:write"},
+    "accountant": {"project:read", "contract:read", "contract:write", "partner:read", "partner:write", "document:read", "document:write"},
+    "site_manager": {"project:read", "project:write", "contract:read", "partner:read", "document:read", "document:write"},
+    "viewer": {"project:read", "contract:read", "partner:read", "document:read"},
 }
 
 

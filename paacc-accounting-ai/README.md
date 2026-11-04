@@ -21,5 +21,10 @@ Docs: `docs/ARCHITECTURE.md`, `docs/DATABASE.md`.
 cd backend
 pip install -e ".[dev]"
 pytest
+export PAACC_JWT_SECRET=<long-random>  PAACC_ADMIN_PW=<password>
+alembic upgrade head
+python -m app.cli create-admin --company "Tên công ty" --email you@example.com --password-env PAACC_ADMIN_PW
 uvicorn app.main:app --reload
+# frontend (separate terminal)
+cd ../frontend && npm install && npm run dev
 ```

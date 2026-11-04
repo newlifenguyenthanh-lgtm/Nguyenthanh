@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./paacc_dev.db"  # use PostgreSQL URL in real deployments
     jwt_secret: str = ""
     jwt_hours: int = 8
+    storage_dir: str = "./storage"  # local file store; swap for S3/MinIO in cloud
+    max_upload_mb: int = 100
 
 
 def get_settings() -> Settings:

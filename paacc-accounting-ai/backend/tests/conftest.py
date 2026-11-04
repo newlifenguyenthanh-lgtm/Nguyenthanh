@@ -18,7 +18,8 @@ B = "/api/v1"
 
 
 @pytest.fixture()
-def env():
+def env(tmp_path, monkeypatch):
+    monkeypatch.setenv("PAACC_STORAGE_DIR", str(tmp_path / "store"))
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
 

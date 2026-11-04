@@ -3,6 +3,8 @@ import { BrowserRouter, NavLink, Navigate, Route, Routes } from "react-router-do
 import { Me, api, auth } from "./api";
 import { ROLE } from "./labels";
 import OfficePage, { VIEW_KEY } from "./office/OfficePage";
+import BoqListPage from "./boq/BoqListPage";
+import BoqReviewPage from "./boq/BoqReviewPage";
 import DrawingDetailPage from "./drawings/DrawingDetailPage";
 import DrawingsPage from "./drawings/DrawingsPage";
 import AuditLog from "./pages/AuditLog";
@@ -29,6 +31,8 @@ export function AppRoutes() {
       <Route path="/audit" element={<main><AuditLog /></main>} />
       <Route path="/drawings" element={<main><DrawingsPage /></main>} />
       <Route path="/drawings/:id" element={<DrawingDetailPage />} />
+      <Route path="/boqs" element={<main><BoqListPage /></main>} />
+      <Route path="/boqs/:id" element={<BoqReviewPage />} />
       <Route path="*" element={<main><p>Không tìm thấy trang.</p></main>} />
     </Routes>
   );
@@ -50,7 +54,7 @@ export default function App() {
         <header><strong>PAACC Construction AI</strong>
           <nav>
             <NavLink to="/dashboard">Bảng điều khiển</NavLink><NavLink to="/office">Văn phòng 3D</NavLink>
-            <NavLink to="/projects">Dự án</NavLink><NavLink to="/documents">Tài liệu</NavLink><NavLink to="/drawings">Bản vẽ</NavLink>
+            <NavLink to="/projects">Dự án</NavLink><NavLink to="/documents">Tài liệu</NavLink><NavLink to="/drawings">Bản vẽ</NavLink><NavLink to="/boqs">BOQ</NavLink>
             <NavLink to="/contracts">Hợp đồng</NavLink><NavLink to="/audit">Nhật ký</NavLink>
           </nav>
           <span>{me.full_name || me.email} · {ROLE[me.role] ?? me.role} <button onClick={() => { auth.set(null); setMe(null); }}>Đăng xuất</button></span>

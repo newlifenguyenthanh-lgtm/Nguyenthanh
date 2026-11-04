@@ -31,7 +31,7 @@ def env(tmp_path, monkeypatch):
     with Session(engine) as s:
         admin = create_admin(s, "Cty A", "admin@a.test", "pw-admin-1")
         co = admin.company_id
-        for role in ("viewer", "director"):
+        for role in ("viewer", "director", "qs_engineer"):
             s.add(User(company_id=co, email=f"{role}@a.test", password_hash=hash_password("pw-x"), role=role))
         other = create_admin(s, "Cty B", "admin@b.test", "pw-admin-2")
         s.commit()

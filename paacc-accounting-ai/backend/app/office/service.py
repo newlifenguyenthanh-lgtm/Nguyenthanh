@@ -6,8 +6,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.agents.registry import AGENTS
-from app.models import (AITask, AuditLog, Contract, ContractAppendix, Department, DepartmentMember, Document,
-                        Project, User)
+from app.models import (AITask, AuditLog, Boq, Contract, ContractAppendix, Department, DepartmentMember, Document,
+                        Drawing, Project, User)
 from app.office.catalog import CATALOG, DEFAULT_DEPARTMENTS, default_layout
 from app.office.status import TaskView, agent_status, combine, utc
 
@@ -54,8 +54,18 @@ def _metrics(db: Session, cid: uuid.UUID, code: str, pending_total: int, now: dt
              ("pending_approvals", "Chờ phê duyệt (toàn công ty)", pending_total)]
     elif code == "bidding":
         m = [("quote_docs", "Tài liệu báo giá", docs("quote")), ("email_docs", "Email lưu trữ", docs("email"))]
-    elif code in ("engineering_qs", "cad_design"):
-        m = [("drawing_docs", "Bản vẽ", docs("drawing"))] + ([("boq_docs", "Tài liệu BOQ", docs("boq"))] if code == "engineering_qs" else [])
+    elif code == "engineering_qs":
+        drw = lambda st: _count(db, select(Drawing.id).where(Drawing.company_id == cid, Drawing.status == st))
+        boq = lambda *st: _count(db, select(Boq.id).where(Boq.company_id == cid, Boq.status.in_(st)))
+        m = [("drawing_docs", "Bản vẽ", docs("drawing")),
+             ("drawings_processing", "Bản vẽ đang phân tích", drw("processing")),
+             ("drawings_processed", "Bản vẽ đã phân tích", drw("processed")),
+             ("drawings_failed", "Bản vẽ phân tích lỗi", drw("failed")),
+             ("boq_draft", "BOQ nháp chờ rà soát", boq("draft", "returned")),
+             ("boq_submitted", "BOQ chờ phê duyệt", boq("submitted")),
+             ("boq_approved", "BOQ đã phê duyệt", boq("approved"))]
+    elif code == "cad_design":
+        m = [("drawing_docs", "Bản vẽ", docs("drawing"))]
     elif code == "estimation":
         m = [("boq_docs", "Tài liệu BOQ", docs("boq"))]
     elif code == "contract_payment":

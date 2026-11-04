@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api";
 import PageViewer, { KIND_COLOR } from "./PageViewer";
 import { CAL_STATUS, DISCIPLINE, FINDING_VI, FLAG_VI, ITEM_KIND, PAGE_KIND, REL_VI, STATUS_VI, VIEW, pct } from "./labels";
@@ -69,11 +69,14 @@ function Calibration({ drawingId, page, onDone }: { drawingId: string; page: Pag
 
 export default function DrawingDetailPage() {
   const { id } = useParams();
+  const [sp] = useSearchParams();
+  const navigate = useNavigate();
+  const focusItem = sp.get("item") ?? undefined; // deep link from a BOQ item to its source line/table
   const [d, setD] = useState<DrawingDetail | null>(null);
-  const [pageNo, setPageNo] = useState(1);
+  const [pageNo, setPageNo] = useState(Number(sp.get("page")) || 1);
   const [items, setItems] = useState<Item[]>([]);
-  const [kinds, setKinds] = useState<string[]>(DEFAULT_KINDS);
-  const [sel, setSel] = useState<string>();
+  const [kinds, setKinds] = useState<string[]>(focusItem ? [...DEFAULT_KINDS, "text", "table"] : DEFAULT_KINDS);
+  const [sel, setSel] = useState<string | undefined>(focusItem);
   const [err, setErr] = useState("");
   const load = useCallback(() => api<DrawingDetail>(`/drawings/${id}`).then(setD).catch((e) => setErr(errorText(e))), [id]);
   useEffect(() => { load(); }, [load]);
@@ -89,6 +92,10 @@ export default function DrawingDetailPage() {
     <main className="wide">
       <p><Link to="/drawings">← Danh sách bản vẽ</Link></p>
       <h2>{d.document_title} <span className="muted">– {d.filename} v{d.version_no} · {STATUS_VI[d.status] ?? d.status}</span></h2>
+      {d.status === "processed" && <p><button onClick={() => api<{ id: string }>("/boqs", { method: "POST",
+        body: JSON.stringify({ title: `BOQ – ${d.document_title} v${d.version_no}`, drawing_ids: [d.id] }) })
+        .then((b) => navigate(`/boqs/${b.id}`)).catch((e) => setErr(errorText(e)))}>Tạo BOQ nháp từ bản vẽ này</button>
+        <span className="muted"> Khối lượng chỉ tính khi đơn vị kích thước đã được xác nhận hoặc ghi rõ trên dòng.</span></p>}
       {d.error_message && <p className="error">{d.error_message}</p>}
       {d.findings.length > 0 && <details open={d.findings.some((f) => f.severity === "warning")}><summary>Phát hiện kiểm tra ({d.findings.length})</summary>
         <ul className="list">{d.findings.map((f, i) => <FindingRow key={i} f={f} />)}</ul></details>}

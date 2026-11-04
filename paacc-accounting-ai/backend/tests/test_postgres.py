@@ -86,3 +86,22 @@ def test_boq_generation_on_postgres(pg, monkeypatch):
     assert {"4.3200", "180.8640", "37.6800", "132.5800", "180.8600"} <= qs
     again = client.get(f"{B}/boqs/{boq['id']}", headers=a).json()
     assert [i["quantity"] for i in again["items"]] == [i["quantity"] for i in boq["items"]]
+
+
+def test_boq_review_and_approval_on_postgres(pg, monkeypatch):
+    from tests.drawing_helpers import make_boq, processed_drawing
+    use_ocr(monkeypatch, FakeOcr())
+    client, _ = pg
+    a = login(client, "admin@pga.test", "pw-admin-1")
+    d_ = login(client, "director@pga.test", "pw-x")
+    boq = make_boq(client, a, [processed_drawing(client, a)["id"]]).json()
+    base = f"{B}/boqs/{boq['id']}"
+    for i in boq["items"]:
+        dec = "accept" if not i["has_blocking"] and i["module"] else "reject"
+        assert client.post(f"{base}/items/{i['id']}/review", json={"decision": dec, "note": "pg"}, headers=a).status_code == 200
+    assert client.post(f"{base}/submit", json={"note": ""}, headers=a).json()["status"] == "submitted"
+    assert client.post(f"{base}/decision", json={"decision": "approve"}, headers=a).status_code == 403  # four eyes
+    approved = client.post(f"{base}/decision", json={"decision": "approve"}, headers=d_).json()
+    assert approved["status"] == "approved"
+    t = {(x["category"], x["unit"]): x["accepted"] for x in approved["totals"]}
+    assert t[("concrete", "m3")] == "4.3200" and t[("steel_box", "kg")] == "180.8640"

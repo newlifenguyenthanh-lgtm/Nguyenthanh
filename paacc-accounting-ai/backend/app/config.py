@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     jwt_hours: int = 8
     storage_dir: str = "./storage"  # local file store; swap for S3/MinIO in cloud
     max_upload_mb: int = 100
+    boq_four_eyes: bool = True  # submitter may not approve their own BOQ
     pdf_max_pages: int = 200
     ocr_enabled: bool = True
     ocr_dpi: int = 300

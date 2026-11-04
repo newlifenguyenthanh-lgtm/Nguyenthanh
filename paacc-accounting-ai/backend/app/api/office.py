@@ -119,6 +119,18 @@ def decide_task(tid: uuid.UUID, decision: str, user: User = Depends(require("ai_
     t = _task(db, tid, user)
     if t.status != "waiting_approval":
         raise HTTPException(409, "Tác vụ không ở trạng thái chờ phê duyệt")
+    if t.entity == "boq":  # business approval: delegate so BOQ status, four-eyes rule and audit stay consistent
+        from app.boq import workflow as W
+        from app.models import Boq
+        boq = db.get(Boq, t.entity_id)
+        try:
+            W.decide(db, user, boq, "approve" if decision == "approve" else "return",
+                     "" if decision == "approve" else "Trả lại từ trung tâm tác vụ")
+        except W.BoqError as e:
+            db.rollback()
+            raise HTTPException(e.status, str(e))
+        db.commit()
+        return task_dict(t)
     set_task_status(t, "completed" if decision == "approve" else "cancelled",
                     error="" if decision == "approve" else f"Bị từ chối bởi {user.email}")
     t.decided_by = user.id

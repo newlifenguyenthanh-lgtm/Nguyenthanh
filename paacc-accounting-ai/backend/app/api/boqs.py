@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.boq import service as S
+from app.boq import workflow as W
 from app.boq.generate import CATEGORY_ORDER
 from app.db import get_db
 from app.deps import audit, require
@@ -47,9 +48,26 @@ def boq_dict(db: Session, b: Boq, with_items: bool = True) -> dict:
            "approval_task_id": str(b.approval_task_id) if b.approval_task_id else None,
            "sources": [{"drawing_id": str(s.drawing_id), "document_version_id": str(s.document_version_id)} for s in sources],
            "item_count": len(items), "review_counts": counts, "blocking_count": sum(1 for i in items if S.blocking(i) and i.review_status != "rejected")}
+    out["totals"] = totals(items)
     if with_items:
         out["items"] = [S.item_dict(i) for i in items]
     return out
+
+
+def totals(items: list[BoqItem]) -> list[dict]:
+    """Deterministic Decimal sums per (category, unit): accepted items and all non-rejected items."""
+    acc: dict[tuple, dict] = {}
+    for i in items:
+        if i.review_status == "rejected" or i.quantity is None:
+            continue
+        t = acc.setdefault((i.category, i.unit), {"category": i.category, "unit": i.unit, "accepted": Decimal(0), "all_active": Decimal(0), "items": 0})
+        t["all_active"] += i.quantity
+        t["items"] += 1
+        if i.review_status == "accepted":
+            t["accepted"] += i.quantity
+    order = {c: n for n, c in enumerate(CATEGORY_ORDER)}
+    return [{**t, "accepted": str(t["accepted"]), "all_active": str(t["all_active"])}
+            for t in sorted(acc.values(), key=lambda t: (order.get(t["category"], 99), t["unit"] or ""))]
 
 
 class BoqIn(BaseModel):
@@ -106,8 +124,10 @@ def get_one(bid: uuid.UUID, user: User = Depends(require("boq:read")), db: Sessi
 
 
 def ensure_editable(b: Boq):
-    if b.status not in S.EDITABLE:
-        raise HTTPException(409, f"BOQ ở trạng thái '{b.status}' không thể chỉnh sửa" + (" – hãy tạo phiên bản mới" if b.status == "approved" else ""))
+    try:
+        W.ensure_editable(b)
+    except S.BoqError as e:
+        raise _err(e)
 
 
 class RulesIn(BaseModel):
@@ -192,3 +212,92 @@ def add_item(bid: uuid.UUID, body: ItemIn, user: User = Depends(require("boq:wri
     audit(db, user, "add_item", "boq_item", i.id, {"boq_id": str(b.id)})
     db.commit()
     return S.item_dict(i)
+
+
+def _run(fn, db: Session, *args):
+    try:
+        out = fn(db, *args)
+    except S.BoqError as e:
+        db.rollback()
+        raise _err(e)
+    db.commit()
+    return out
+
+
+class ItemPatch(BaseModel):
+    inputs: dict[str, str | None] | None = None
+    unit_system: str | None = None
+    waste_override: str | None = None
+    description: str | None = None
+    spec: str | None = None
+    category: str | None = None
+    stated_quantity: str | None = None
+    stated_unit: str | None = None
+    reason: str = ""
+
+
+@router.patch("/boqs/{bid}/items/{iid}")
+def edit_item(bid: uuid.UUID, iid: uuid.UUID, body: ItemPatch, user: User = Depends(require("boq:write")),
+              db: Session = Depends(get_db)) -> dict:
+    b = get_boq(db, bid, user)
+    item = get_item(db, b, iid)
+    changes = body.model_dump(exclude_unset=True, exclude={"reason"})
+    return S.item_dict(_run(W.edit_item, db, user, b, item, changes, body.reason))
+
+
+class ReviewIn(BaseModel):
+    decision: str
+    note: str = ""
+
+
+@router.post("/boqs/{bid}/items/{iid}/review")
+def review_item(bid: uuid.UUID, iid: uuid.UUID, body: ReviewIn, user: User = Depends(require("boq:write")),
+                db: Session = Depends(get_db)) -> dict:
+    b = get_boq(db, bid, user)
+    return S.item_dict(_run(W.review_item, db, user, b, get_item(db, b, iid), body.decision, body.note))
+
+
+class NoteIn(BaseModel):
+    note: str
+
+
+@router.post("/boqs/{bid}/items/{iid}/notes")
+def annotate(bid: uuid.UUID, iid: uuid.UUID, body: NoteIn, user: User = Depends(require("boq:write")),
+             db: Session = Depends(get_db)) -> dict:
+    b = get_boq(db, bid, user)
+    return S.item_dict(_run(W.annotate_item, db, user, b, get_item(db, b, iid), body.note))
+
+
+@router.get("/boqs/{bid}/items/{iid}/history")
+def item_history(bid: uuid.UUID, iid: uuid.UUID, user: User = Depends(require("boq:read")), db: Session = Depends(get_db)) -> list[dict]:
+    b = get_boq(db, bid, user)
+    return W.history(db, get_item(db, b, iid))
+
+
+@router.post("/boqs/{bid}/submit")
+def submit(bid: uuid.UUID, body: NoteIn | None = None, user: User = Depends(require("boq:write")), db: Session = Depends(get_db)) -> dict:
+    b = get_boq(db, bid, user)
+    _run(W.submit, db, user, b, body.note if body else "")
+    return boq_dict(db, b)
+
+
+class DecisionIn(BaseModel):
+    decision: str
+    note: str = ""
+
+
+@router.post("/boqs/{bid}/decision")
+def decide(bid: uuid.UUID, body: DecisionIn, user: User = Depends(require("boq:approve")), db: Session = Depends(get_db)) -> dict:
+    b = get_boq(db, bid, user)
+    _run(W.decide, db, user, b, body.decision, body.note)
+    return boq_dict(db, b)
+
+
+class VersionIn(BaseModel):
+    reason: str
+
+
+@router.post("/boqs/{bid}/new-version", status_code=201)
+def new_version(bid: uuid.UUID, body: VersionIn, user: User = Depends(require("boq:write")), db: Session = Depends(get_db)) -> dict:
+    b = get_boq(db, bid, user)
+    return boq_dict(db, _run(W.new_version, db, user, b, body.reason))

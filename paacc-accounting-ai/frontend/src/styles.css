@@ -66,3 +66,16 @@ main.wide { max-width: 1500px; margin: 0 auto; padding: 16px; }
 tr.sel td { background: #fff3bf; }
 li.warn { color: #b35c00; }
 @media (max-width: 1000px) { .drawing-layout { grid-template-columns: 1fr; } }
+
+/* BOQ review */
+.boq-table tr.clickable { cursor: pointer; } .boq-table tr.rejected td { color: #98a2b3; text-decoration: line-through; }
+.boq-table tr.accepted td:last-child { color: #1e7b45; font-weight: 600; } td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.boq-table td { white-space: normal; }
+.item-editor { background: #f8fafc; padding: 8px 12px; border-left: 4px solid #1f6feb; }
+.editor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin: 8px 0; }
+.editor-grid label { display: flex; flex-direction: column; font-size: 13px; } .editor-grid .wide { grid-column: 1 / -1; }
+input.missing { border-color: #eb5757; background: #fff5f5; }
+small.origin { color: #5b6675; } small.origin-engineer { color: #1f6feb; } small.origin-ai_inferred { color: #8e44ad; } small.origin-none { color: #eb5757; }
+.flags { list-style: none; padding: 0; margin: 4px 0; } .flag-block { color: #b42318; } .flag-warn { color: #b35c00; } .flag-info { color: #5b6675; }
+pre.notes { white-space: pre-wrap; background: #fff; border: 1px solid #e3e8ef; padding: 6px; font-size: 12px; }
+table.hist { font-size: 12px; margin-top: 6px; }

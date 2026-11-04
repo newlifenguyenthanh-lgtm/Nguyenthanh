@@ -42,7 +42,7 @@ def test_scanned_page_uses_ocr_with_confidence(env, a):
     pages = env.get(f"{B}/drawings/{d['id']}", headers=a).json()["pages"]
     assert [p["kind"] for p in pages] == ["vector", "scanned"]
     assert pages[1]["ocr_used"] and pages[1]["ocr_engine"] == "fake-ocr" and pages[1]["ocr_mean_confidence"] == 0.703
-    ocr_items = env.get(f"{B}/drawings/{d['id']}/items?page=2", headers=a).json()
+    ocr_items = env.get(f"{B}/drawings/{d['id']}/items?page=2&kind=text", headers=a).json()
     assert {i["source"] for i in ocr_items} == {"ocr"} and ocr_items[0]["confidence"] is not None
 
 

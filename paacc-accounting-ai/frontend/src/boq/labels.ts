@@ -9,3 +9,5 @@ export const ACTION: Record<string, string> = {
   generated: "Tạo tự động", edited: "Chỉnh sửa", accepted: "Chấp nhận", rejected: "Loại bỏ", review_reset: "Đặt lại rà soát",
   annotated: "Ghi chú", recalculated: "Tính lại (đổi quy tắc)", created_manually: "Kỹ sư thêm", copied_from_version: "Sao chép từ phiên bản trước",
 };
+export const UNIT: Record<string, string> = { m3: "m³", m2: "m²" };
+export function unitLabel(u: string | null | undefined): string { return u ? UNIT[u] ?? u : ""; }

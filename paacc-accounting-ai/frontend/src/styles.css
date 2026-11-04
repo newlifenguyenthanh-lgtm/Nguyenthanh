@@ -63,6 +63,7 @@ main.wide { max-width: 1500px; margin: 0 auto; padding: 16px; }
 .calib { background: #fff; border: 1px solid #e3e8ef; border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
 .items { max-height: 60vh; overflow: auto; }
 .items td { white-space: normal; }
+.items td:last-child, .items th:last-child { min-width: 120px; }
 tr.sel td { background: #fff3bf; }
 li.warn { color: #b35c00; }
 @media (max-width: 1000px) { .drawing-layout { grid-template-columns: 1fr; } }

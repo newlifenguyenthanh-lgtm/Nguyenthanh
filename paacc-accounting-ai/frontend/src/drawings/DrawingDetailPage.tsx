@@ -93,7 +93,7 @@ export default function DrawingDetailPage() {
       <p><Link to="/drawings">← Danh sách bản vẽ</Link></p>
       <h2>{d.document_title} <span className="muted">– {d.filename} v{d.version_no} · {STATUS_VI[d.status] ?? d.status}</span></h2>
       {d.status === "processed" && <p><button onClick={() => api<{ id: string }>("/boqs", { method: "POST",
-        body: JSON.stringify({ title: `BOQ – ${d.document_title} v${d.version_no}`, drawing_ids: [d.id] }) })
+        body: JSON.stringify({ title: `BOQ – ${d.document_title}`, drawing_ids: [d.id] }) })
         .then((b) => navigate(`/boqs/${b.id}`)).catch((e) => setErr(errorText(e)))}>Tạo BOQ nháp từ bản vẽ này</button>
         <span className="muted"> Khối lượng chỉ tính khi đơn vị kích thước đã được xác nhận hoặc ghi rõ trên dòng.</span></p>}
       {d.error_message && <p className="error">{d.error_message}</p>}

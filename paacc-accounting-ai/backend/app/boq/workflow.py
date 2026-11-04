@@ -110,6 +110,8 @@ def review_item(db: Session, user: User, boq: Boq, item: BoqItem, decision: str,
             raise BoqError(409, "Không thể chấp nhận: còn lỗi chặn – " + "; ".join(f["message"] for f in S.blocking(item)))
         if item.quantity is None:
             raise BoqError(409, "Không thể chấp nhận hạng mục chưa có khối lượng")
+        if any(f["code"] == "possible_duplicate" for f in item.flags or []) and not note.strip():
+            raise BoqError(422, "Hạng mục có thể bị trùng – cần ghi chú xác nhận đây không phải tính hai lần")
     if decision == "reject" and not note.strip():
         raise BoqError(422, "Cần ghi lý do loại bỏ")
     item.review_status = {"accept": "accepted", "reject": "rejected", "reset": "pending"}[decision]

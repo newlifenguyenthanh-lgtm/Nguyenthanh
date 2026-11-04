@@ -2,7 +2,7 @@ import { FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from "
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, apiBlob, errorText } from "../api";
 import ItemEditor from "./ItemEditor";
-import { BOQ_STATUS, BOQ_STATUS_COLOR, CATEGORY, ORIGIN, REVIEW } from "./labels";
+import { BOQ_STATUS, BOQ_STATUS_COLOR, CATEGORY, ORIGIN, REVIEW, unitLabel } from "./labels";
 import type { Boq, BoqExport, BoqItem, ModuleSpec } from "./types";
 
 export function qty(v: string | null, decimals: number): string {
@@ -97,7 +97,7 @@ export default function BoqReviewPage() {
 
       <h3>Tổng hợp</h3>
       <div className="scroll"><table><thead><tr><th>Danh mục</th><th>ĐVT</th><th>Đã chấp nhận</th><th>Tất cả (trừ loại bỏ)</th><th>Số mục</th></tr></thead>
-        <tbody>{boq.totals.map((t) => <tr key={`${t.category}-${t.unit}`}><td>{CATEGORY[t.category] ?? t.category}</td><td>{t.unit}</td>
+        <tbody>{boq.totals.map((t) => <tr key={`${t.category}-${t.unit}`}><td>{CATEGORY[t.category] ?? t.category}</td><td>{unitLabel(t.unit)}</td>
           <td>{qty(t.accepted, dec)}</td><td>{qty(t.all_active, dec)}</td><td>{t.items}</td></tr>)}</tbody></table></div>
 
       <h3>Hạng mục</h3>
@@ -110,7 +110,7 @@ export default function BoqReviewPage() {
           <Fragment key={i.id}>
             <tr className={`clickable ${i.review_status}`} onClick={() => setOpen(open === i.id ? undefined : i.id)} aria-label={`Hạng mục ${i.item_no}`}>
               <td>{i.item_no}</td><td>{CATEGORY[i.category] ?? i.category}</td><td>{i.description}</td><td>{i.spec}</td>
-              <td className="num">{qty(i.quantity, dec)}</td><td>{i.unit}</td><td>{ORIGIN[i.origin] ?? i.origin}</td>
+              <td className="num">{qty(i.quantity, dec)}</td><td>{unitLabel(i.unit)}</td><td>{ORIGIN[i.origin] ?? i.origin}</td>
               <td>{i.has_blocking ? "⛔ " : ""}{i.flags.filter((f) => f.severity === "warning").length ? `⚠ ${i.flags.filter((f) => f.severity === "warning").length}` : ""}</td>
               <td>{REVIEW[i.review_status]}</td></tr>
             {open === i.id && <tr><td colSpan={9}>

@@ -148,7 +148,7 @@ def candidates_from_line(line: dict, derived: list[dict], page_units: str | None
 
     mark = _MARK.search(F)
     sec = sec3 or sec2
-    return Candidate(category=category, description=line["text"], spec=", ".join(sorted(s["data"]["value"] for s in specs.values())),
+    return Candidate(category=category, description=line["text"], spec=", ".join(dict.fromkeys(s["text"].strip() for s in specs.values())),
                      module=module, inputs=inputs, unit_system=unit, page_no=line["page_no"], bbox=list(line["bbox"]),
                      source_item_ids=[line["id"]] + [x["id"] for x in derived], drawing_id=drawing_id, flags=flags,
                      mark=mark.group(1) if mark else None,

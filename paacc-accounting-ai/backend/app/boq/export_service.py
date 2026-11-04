@@ -35,12 +35,14 @@ def export_boq(db: Session, user: User, boq: Boq) -> BoqExport:
     sources = list(db.scalars(select(BoqSource).where(BoqSource.boq_id == boq.id)))
     drawings = {s.drawing_id: db.get(Drawing, s.drawing_id) for s in sources}
     labels: dict = {}
+    sheet: dict = {}  # (drawing_id, page_no) -> drawing number printed on that page
     src_meta = []
     for s in sources:
         d = drawings[s.drawing_id]
-        numbers = [p.drawing_number for p in db.scalars(select(DrawingPage).where(DrawingPage.drawing_id == d.id)
-                                                         .order_by(DrawingPage.page_no)) if p.drawing_number]
-        labels[d.id] = ", ".join(dict.fromkeys(numbers)) or d.filename
+        pages = list(db.scalars(select(DrawingPage).where(DrawingPage.drawing_id == d.id).order_by(DrawingPage.page_no)))
+        for p in pages:
+            sheet[(d.id, p.page_no)] = p.drawing_number or f"{d.filename} tr.{p.page_no}"
+        labels[d.id] = ", ".join(dict.fromkeys(p.drawing_number for p in pages if p.drawing_number)) or d.filename
         ver = db.get(DocumentVersion, s.document_version_id)
         src_meta.append({"label": labels[d.id], "filename": d.filename, "version_no": ver.version_no, "sha256": d.sha256,
                          "pages": d.page_count, "drawing_id": str(d.id)})
@@ -59,7 +61,8 @@ def export_boq(db: Session, user: User, boq: Boq) -> BoqExport:
             quantity=None if i.quantity is None else str(i.quantity), module=i.module, excel_expr=i.excel_expr,
             calc_inputs=i.calc_inputs or {}, input_labels=labels_i, input_meta=i.inputs or {}, waste_factor=str(i.waste_factor),
             formula_text=i.formula_text, review_status=i.review_status, origin=i.origin, notes=i.notes, flags=i.flags or [],
-            drawing_label=labels.get(i.drawing_id, "") if i.drawing_id else "Kỹ sư nhập", page_no=i.page_no, bbox=i.bbox,
+            drawing_label=sheet.get((i.drawing_id, i.page_no), labels.get(i.drawing_id, "")) if i.drawing_id else "Kỹ sư nhập",
+            page_no=i.page_no, bbox=i.bbox,
             source_text=src_text, item_id=str(i.id), unit_system=i.unit_system))
     project = db.get(Project, boq.project_id) if boq.project_id else None
     now = dt.datetime.now(dt.timezone.utc)
@@ -73,7 +76,8 @@ def export_boq(db: Session, user: User, boq: Boq) -> BoqExport:
     data = build_workbook(meta, rows)
     digest, key = save_bytes(str(user.company_id), data)
     suffix = "" if boq.status == "approved" else "_NHAP"
-    filename = f"BOQ_{_slug(boq.title)}_v{boq.version_no}{suffix}_{now.astimezone(VN_TZ).strftime('%Y%m%d_%H%M%S')}.xlsx"
+    slug = _slug(boq.title)
+    filename = f"{'' if slug.upper().startswith('BOQ') else 'BOQ_'}{slug}_v{boq.version_no}{suffix}_{now.astimezone(VN_TZ).strftime('%Y%m%d_%H%M%S')}.xlsx"
     exp = BoqExport(company_id=boq.company_id, boq_id=boq.id, project_id=boq.project_id, boq_version_no=boq.version_no,
                     boq_status=boq.status, filename=filename, sha256=digest, size_bytes=len(data), storage_key=key,
                     item_count=len(items), created_by=user.id)

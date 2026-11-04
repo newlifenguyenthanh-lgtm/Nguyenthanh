@@ -43,8 +43,8 @@ Frontend: React + TS (Vite), Vietnamese UI, next increment.
 ## Status vs roadmap
 - Phase 1: this document. Phase 2: backend foundation done (auth, RBAC, audit, projects, partners, contracts+appendices with approval); Alembic migration `0001` added.
 - Phase 3 (in progress): versioned, SHA-256 content-addressed document store with duplicate detection (done); React/TS Vietnamese shell with login, projects, documents (done, minimal). Not yet: project dashboard, document preview, contracts UI, S3 storage, virus scanning.
-- Phase 4 (in progress): deterministic takeoff calculation engine done (`app/takeoff/`, Decimal-only, explicit units/waste, 21 tests).
-  Not yet: PDF/OCR extraction, drawing analysis, takeoff persistence/API, BOQ Excel export, synthetic-PDF tests, UI.
+- Phase 4 (foundation complete, see `docs/PHASE4_DRAWINGS_TAKEOFF.md`): 4A PDF ingestion + OCR, 4B drawing analysis,
+  4C draft BOQ, 4D review/approval, 4E Excel export. Verified end-to-end on synthetic drawings; real-drawing validation pending.
 - PAACC 3D Virtual Office (core module, added out of roadmap order at the user's request): departments, members, AI tasks,
   status derivation, office APIs, lazy 3D scene + 2D dashboard. See `docs/VIRTUAL_OFFICE.md`.
 - Phases 5-12: not started.

@@ -39,7 +39,8 @@ def review(env, ctx, i, decision, note="", who="qs"):
 def accept_all_reviewable(env, ctx):
     for i in get(env, ctx)["items"]:
         if i["review_status"] == "pending":
-            r = review(env, ctx, i, "accept" if not i["has_blocking"] else "reject", "" if not i["has_blocking"] else "Bỏ – trùng/thiếu dữ liệu")
+            r = review(env, ctx, i, "accept" if not i["has_blocking"] else "reject",
+                       "Đã đối chiếu, không trùng" if not i["has_blocking"] else "Bỏ – trùng/thiếu dữ liệu")
             assert r.status_code == 200, r.text
 
 
@@ -50,13 +51,14 @@ def test_blocked_item_cannot_be_accepted_until_engineer_fixes_it(env, ctx):
     assert env.patch(url(ctx, beam), json={"unit_system": "mm"}, headers=ctx["qs"]).status_code == 422  # reason required
     fixed = env.patch(url(ctx, beam), json={"unit_system": "mm", "reason": "Đơn vị theo khung tên: mm"}, headers=ctx["qs"]).json()
     assert fixed["quantity"] == "4.3200" and not fixed["has_blocking"] and fixed["version"] == 2
-    assert review(env, ctx, fixed, "accept").json()["review_status"] == "accepted"
+    assert review(env, ctx, fixed, "accept").status_code == 422  # flagged as possible duplicate of the schedule row
+    assert review(env, ctx, fixed, "accept", "Giữ dòng tính; bảng thống kê sẽ loại").json()["review_status"] == "accepted"
 
 
 def test_edit_marks_engineer_origin_resets_review_and_keeps_history(env, ctx):
     beam = item(ctx["boq"], "DẦM D1")
     env.patch(url(ctx, beam), json={"unit_system": "mm", "reason": "mm"}, headers=ctx["qs"])
-    review(env, ctx, beam, "accept")
+    review(env, ctx, beam, "accept", "Đã đối chiếu bảng thống kê")
     e = env.patch(url(ctx, beam), json={"inputs": {"count": "5"}, "reason": "Thực tế 5 dầm theo mặt bằng"}, headers=ctx["qs"]).json()
     assert e["quantity"] == "5.4000" and e["review_status"] == "pending"
     assert e["inputs"]["count"]["origin"] == "engineer" and e["inputs"]["count"]["previous_value"] == "4"
@@ -67,6 +69,15 @@ def test_edit_marks_engineer_origin_resets_review_and_keeps_history(env, ctx):
     assert hist[-1]["reason"] == "Thực tế 5 dầm theo mặt bằng" and hist[-1]["inputs"]["count"] == "5"
     assert env.patch(url(ctx, beam), json={"inputs": {"bogus": "1"}, "reason": "x"}, headers=ctx["qs"]).status_code == 422
     assert env.patch(url(ctx, beam), json={"inputs": {"count": "abc"}, "reason": "x"}, headers=ctx["qs"]).status_code == 422
+
+
+def test_accepting_possible_duplicate_requires_confirmation_note(env, ctx):
+    stated = next(i for i in ctx["boq"]["items"] if i["module"] is None and i["quantity"] == "4.3200")
+    assert any(f["code"] == "possible_duplicate" for f in stated["flags"])
+    r = review(env, ctx, stated, "accept")
+    assert r.status_code == 422 and "trùng" in r.json()["detail"]
+    ok = review(env, ctx, stated, "accept", "Bảng thống kê là nguồn chính; dòng ghi chú sẽ bị loại").json()
+    assert ok["review_status"] == "accepted" and "nguồn chính" in ok["notes"]
 
 
 def test_reject_requires_note_and_annotations(env, ctx):
@@ -146,7 +157,7 @@ def test_new_version_after_approval(env, ctx):
 def test_totals_and_isolation(env, ctx):
     beam = item(ctx["boq"], "DẦM D1")
     env.patch(url(ctx, beam), json={"unit_system": "mm", "reason": "mm"}, headers=ctx["qs"])
-    review(env, ctx, beam, "accept")
+    review(env, ctx, beam, "accept", "Đã đối chiếu bảng thống kê")
     t = {(x["category"], x["unit"]): x for x in get(env, ctx)["totals"]}
     assert t[("concrete", "m3")]["accepted"] == "4.3200" and t[("concrete", "m3")]["all_active"] == "8.6400"
     b = login(env, "admin@b.test", "pw-admin-2")

@@ -19,7 +19,8 @@ A single registry in `app/agents/registry.py` covers the 14 Phase 1 design agent
 ### Status derivation (pure functions, `app/office/status.py`)
 - Agent status, from its tasks: `error` if the most recent finished task failed (cleared by a later success), else `waiting_approval` if any task awaits approval, else `working` if any task is queued or running, else `completed` if a task finished in the last 24 h, else `idle`.
 - Department status is the most urgent of its agents' statuses and its real business approvals, in the order error > waiting_approval > working > completed > idle.
-- Real business approvals counted today: draft contract appendices (Contract & Payment). Unconfirmed takeoff items will be added when Phase 4 persistence lands.
+- Real business approvals counted today: draft contract appendices (Contract & Payment). BOQ approvals appear as `waiting_approval` tasks of the Quantity Surveyor agent (Phase 4D), approved via the BOQ workflow (four-eyes rule).
+- Engineering & QS metrics come from the drawings and BOQ tables: drawings processing, processed or failed; draft BOQs; BOQs awaiting approval; approved BOQs.
 
 ### Endpoints (`office:read` for all roles)
 - `GET /office/overview`: departments with layout, status, agents (with status and current task), employees, task counts, pending approvals, real metrics and module availability.
@@ -69,5 +70,5 @@ On phones the panel stacks below the canvas. Without WebGL the page falls back t
 ## 5. Not in this prototype
 - Avatars are simple primitives, not character models.
 - No live push: the office polls every 10 s. WebSockets later.
-- Metrics for planned modules (CAD, estimation, inventory, site, accounting) are unavailable until those modules exist.
+- Metrics for planned modules (CAD, estimation, inventory, site, accounting) are unavailable until those modules exist. Engineering & QS links to `/drawings`.
 - No per-department reports beyond links to documents and the audit log.

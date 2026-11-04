@@ -67,6 +67,11 @@ def test_export_structure_traceability_and_formulas(env, ctx):
     assert any(f.startswith("=ROUND(") for f in calc_formulas) and any("PI()/4" in f for f in calc_formulas)
     sums = [c.value for row in s.iter_rows() for c in row if isinstance(c.value, str) and c.value.startswith("=SUMIFS(")]
     assert sums and all('"Chấp nhận"' in f for f in sums)
+    manual = env.post(f"{B}/boqs/{ctx['boq']['id']}/items", json={"category": "other", "description": "Bulông M20", "quantity": "48",
+                                                                  "stated_unit": "bộ"}, headers=ctx["qs"]).json()
+    wb2 = openpyxl.load_workbook(io.BytesIO(workbook(env, ctx, export(env, ctx).json())))
+    row = next(r for r in wb2["BOQ"].iter_rows(min_row=4) if r[14].value == manual["id"])
+    assert row[7].value == "Kỹ sư nhập" and row[8].value is None and row[10].value == "Kỹ sư nhập"
     trace = wb["Truy vết nguồn"]
     assert trace["E3"].value == ctx["drawing"]["sha256"]
     texts = [r[4].value for r in trace.iter_rows(min_row=6) if r[4].value]
@@ -121,3 +126,17 @@ def test_export_permissions_history_and_isolation(env, ctx):
     assert env.get(f"{B}/projects/{ctx['project_id']}/boq-exports", headers=b).status_code == 404
     actions = [x["action"] for x in env.get(f"{B}/audit-logs", headers=login(env, "admin@a.test", "pw-admin-1")).json()]
     assert actions.count("export") == 2 and "download" in actions
+
+
+def test_multi_page_export_names_the_sheet_of_each_item(env, monkeypatch):
+    use_ocr(monkeypatch, FakeOcr())
+    qs = login(env, "qs_engineer@a.test", "pw-x")
+    from tests.drawing_helpers import process, upload
+    d = process(env, qs, upload(env, qs, pf.mixed_doc())["id"]).json()
+    for page in (1, 2):
+        env.post(f"{B}/drawings/{d['id']}/pages/{page}/calibration", json={"units": "mm"}, headers=qs)
+    boq = make_boq(env, qs, [d["id"]]).json()
+    exp = env.post(f"{B}/boqs/{boq['id']}/exports", headers=qs).json()
+    wb = openpyxl.load_workbook(io.BytesIO(env.get(f"{B}/boq-exports/{exp['id']}/download", headers=qs).content))
+    sheets = {(r[8].value, r[7].value) for r in wb["BOQ"].iter_rows(min_row=4) if r[14].value}
+    assert sheets == {(1, "KC-01"), (2, "KC-02")}

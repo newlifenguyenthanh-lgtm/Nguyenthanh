@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     jwt_hours: int = 8
     storage_dir: str = "./storage"  # local file store; swap for S3/MinIO in cloud
     max_upload_mb: int = 100
+    pdf_max_pages: int = 200
+    ocr_enabled: bool = True
+    ocr_dpi: int = 300
+    ocr_max_side_px: int = 7000
+    ocr_min_text_chars: int = 20  # below this a page with large images is treated as scanned
 
 
 def get_settings() -> Settings:

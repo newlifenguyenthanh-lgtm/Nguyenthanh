@@ -14,12 +14,15 @@ ROLE_PERMS: dict[str, set[str]] = {
     "admin": {"*"},
     "director": {"project:read", "project:write", "contract:read", "contract:write",
                  "contract:approve", "partner:read", "partner:write", "audit:read", "document:read", "document:write",
-                 "office:read", "office:manage", "ai_task:write", "ai_task:approve"},
+                 "office:read", "office:manage", "ai_task:write", "ai_task:approve",
+                 "drawing:read", "drawing:write"},
     "accountant": {"project:read", "contract:read", "contract:write", "partner:read", "partner:write", "document:read", "document:write",
-                   "office:read", "ai_task:write"},
+                   "office:read", "ai_task:write", "drawing:read"},
+    "qs_engineer": {"project:read", "document:read", "document:write", "office:read", "ai_task:write",
+                    "drawing:read", "drawing:write"},
     "site_manager": {"project:read", "project:write", "contract:read", "partner:read", "document:read", "document:write",
-                     "office:read", "ai_task:write"},
-    "viewer": {"project:read", "contract:read", "partner:read", "document:read", "office:read"},
+                     "office:read", "ai_task:write", "drawing:read", "drawing:write"},
+    "viewer": {"project:read", "contract:read", "partner:read", "document:read", "office:read", "drawing:read"},
 }
 
 

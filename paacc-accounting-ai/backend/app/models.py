@@ -147,3 +147,60 @@ class AITask(Base):
     started_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Drawing(Base):
+    """One processing run of one immutable document version (explicit document/version link)."""
+    __tablename__ = "drawings"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    project_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("projects.id"), index=True)
+    document_id: Mapped[uuid.UUID] = fk("documents")
+    document_version_id: Mapped[uuid.UUID] = fk("document_versions")
+    version_no: Mapped[int]
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(16), default="queued")  # queued|processing|processed|failed
+    page_count: Mapped[int] = mapped_column(default=0)
+    pdf_metadata: Mapped[dict | None] = mapped_column(JSON)
+    findings: Mapped[list | None] = mapped_column(JSON)
+    duplicate_of_drawing_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("drawings.id"))
+    error_code: Mapped[str] = mapped_column(String(64), default="")
+    error_message: Mapped[str] = mapped_column(String(2000), default="")
+    ai_task_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("ai_tasks.id"))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    processed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DrawingPage(Base):
+    __tablename__ = "drawing_pages"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    drawing_id: Mapped[uuid.UUID] = fk("drawings")
+    page_no: Mapped[int]
+    width_pt: Mapped[float]
+    height_pt: Mapped[float]
+    rotation: Mapped[int] = mapped_column(default=0)
+    kind: Mapped[str] = mapped_column(String(16))  # vector|scanned|mixed|vector_no_text|empty
+    text_chars: Mapped[int] = mapped_column(default=0)
+    image_coverage: Mapped[float] = mapped_column(default=0)
+    vector_paths: Mapped[int] = mapped_column(default=0)
+    ocr_used: Mapped[bool] = mapped_column(default=False)
+    ocr_engine: Mapped[str | None] = mapped_column(String(128))
+    ocr_mean_confidence: Mapped[float | None]
+    warnings: Mapped[list | None] = mapped_column(JSON)
+
+
+class ExtractedItem(Base):
+    """A value read from the drawing. bbox in PDF points, displayed page space, origin top-left."""
+    __tablename__ = "extracted_items"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    drawing_id: Mapped[uuid.UUID] = fk("drawings")
+    page_no: Mapped[int] = mapped_column(index=True)
+    kind: Mapped[str] = mapped_column(String(32), index=True)  # text|table|... (analysis adds more)
+    text: Mapped[str] = mapped_column(String(4000))
+    x0: Mapped[float]
+    y0: Mapped[float]
+    x1: Mapped[float]
+    y1: Mapped[float]
+    source: Mapped[str] = mapped_column(String(16))  # text | ocr | analysis
+    confidence: Mapped[float | None]  # 0-1, None = exact embedded text
+    data: Mapped[dict | None] = mapped_column(JSON)

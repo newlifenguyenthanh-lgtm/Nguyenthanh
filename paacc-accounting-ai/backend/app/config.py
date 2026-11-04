@@ -7,7 +7,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     local_model_url: str = "http://localhost:11434/v1"
-    database_url: str = ""
+    database_url: str = "sqlite:///./paacc_dev.db"  # use PostgreSQL URL in real deployments
+    jwt_secret: str = ""
+    jwt_hours: int = 8
 
 
 def get_settings() -> Settings:

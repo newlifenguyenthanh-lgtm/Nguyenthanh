@@ -9,3 +9,4 @@ node_modules/
 dist/
 *.sqlite3
 data/private/
+*.db

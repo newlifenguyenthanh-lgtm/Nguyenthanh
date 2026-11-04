@@ -109,3 +109,41 @@ class DocumentVersion(Base):
     storage_key: Mapped[str] = mapped_column(String(255))
     note: Mapped[str] = mapped_column(String(500), default="")
     uploaded_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+
+
+class Department(Base):
+    __tablename__ = "departments"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    code: Mapped[str] = mapped_column(String(64))
+    name_vi: Mapped[str] = mapped_column(String(255))
+    sort_order: Mapped[int] = mapped_column(default=0)
+    color: Mapped[str] = mapped_column(String(16), default="#4f7cac")
+    layout: Mapped[dict] = mapped_column(JSON)  # {"x","z","w","d"} in scene units
+
+
+class DepartmentMember(Base):
+    __tablename__ = "department_members"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    department_id: Mapped[uuid.UUID] = fk("departments")
+    user_id: Mapped[uuid.UUID] = fk("users")
+    job_title: Mapped[str] = mapped_column(String(255), default="")
+
+
+class AITask(Base):
+    __tablename__ = "ai_tasks"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    agent_key: Mapped[str] = mapped_column(String(64), index=True)
+    department_code: Mapped[str] = mapped_column(String(64), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(32), default="queued")
+    requires_approval: Mapped[bool] = mapped_column(default=False)
+    project_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("projects.id"))
+    entity: Mapped[str | None] = mapped_column(String(64))
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    output_summary: Mapped[str] = mapped_column(String(2000), default="")
+    error_message: Mapped[str] = mapped_column(String(2000), default="")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    started_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

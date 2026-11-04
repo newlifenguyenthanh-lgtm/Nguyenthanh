@@ -3,10 +3,30 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "scripts": { "dev": "vite", "build": "tsc --noEmit && vite build", "test": "vitest run" },
-  "dependencies": { "react": "^18.3.1", "react-dom": "^18.3.1" },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@react-three/drei": "^9.114.0",
+    "@react-three/fiber": "^8.17.10",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "three": "^0.169.0"
+  },
   "devDependencies": {
-    "@types/react": "^18.3.3", "@types/react-dom": "^18.3.0", "@vitejs/plugin-react": "^4.3.1",
-    "typescript": "^5.5.4", "vite": "^5.4.0", "vitest": "^2.0.5"
+    "@react-three/test-renderer": "^8.2.1",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.0.1",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.169.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0",
+    "vitest": "^2.0.5"
   }
 }

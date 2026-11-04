@@ -29,7 +29,7 @@ Linking keys: `project_id`, `contract_id`, `material_id`, `partner_id`, `documen
 (* implemented in Phase 2 foundation)
 
 ## Agents (14)
-Supervisor routes and enforces approval gates; Document, PDF Drawing, CAD, Quantity Surveyor, Quotation, Estimation, Contract,
+Implemented as a single registry (`app/agents/registry.py`, 18 entries incl. accounting/tax sub-agents), each owned by one department. Supervisor routes and enforces approval gates; Document, PDF Drawing, CAD, Quantity Surveyor, Quotation, Estimation, Contract,
 Payment, Inventory, Construction, Accounting, Audit (cross-checks other agents' outputs against deterministic recomputation), Reporting.
 Contract: each agent reads/writes only its own module's tables via service functions; hand-off is through typed records
 (e.g. confirmed takeoff_items -> Estimation), never free text. Each run writes an `ai_tasks` row (agent, model, inputs hash, output, status, approver).
@@ -43,7 +43,11 @@ Frontend: React + TS (Vite), Vietnamese UI, next increment.
 ## Status vs roadmap
 - Phase 1: this document. Phase 2: backend foundation done (auth, RBAC, audit, projects, partners, contracts+appendices with approval); Alembic migration `0001` added.
 - Phase 3 (in progress): versioned, SHA-256 content-addressed document store with duplicate detection (done); React/TS Vietnamese shell with login, projects, documents (done, minimal). Not yet: project dashboard, document preview, contracts UI, S3 storage, virus scanning.
-- Phases 3-12: not started.
+- Phase 4 (in progress): deterministic takeoff calculation engine done (`app/takeoff/`, Decimal-only, explicit units/waste, 21 tests).
+  Not yet: PDF/OCR extraction, drawing analysis, takeoff persistence/API, BOQ Excel export, synthetic-PDF tests, UI.
+- PAACC 3D Virtual Office (core module, added out of roadmap order at the user's request): departments, members, AI tasks,
+  status derivation, office APIs, lazy 3D scene + 2D dashboard. See `docs/VIRTUAL_OFFICE.md`.
+- Phases 5-12: not started.
 
 ## Known limitations / open questions
 - Tests run on SQLite, which stores Decimal as float; money columns must be verified on PostgreSQL before production.

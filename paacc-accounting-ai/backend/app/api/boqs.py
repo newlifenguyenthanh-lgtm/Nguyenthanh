@@ -2,16 +2,20 @@ import uuid
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.boq import service as S
+from app.boq.export_service import export_boq, export_dict
 from app.boq import workflow as W
 from app.boq.generate import CATEGORY_ORDER
 from app.db import get_db
 from app.deps import audit, require
-from app.models import Boq, BoqItem, BoqSource, Drawing, Project, User
+from app.models import Boq, BoqExport, BoqItem, BoqSource, Drawing, Project, User
+from app.security import has_perm
+from app.storage import open_path
 from app.takeoff.engine import MODULES, list_modules
 
 router = APIRouter()
@@ -301,3 +305,41 @@ class VersionIn(BaseModel):
 def new_version(bid: uuid.UUID, body: VersionIn, user: User = Depends(require("boq:write")), db: Session = Depends(get_db)) -> dict:
     b = get_boq(db, bid, user)
     return boq_dict(db, _run(W.new_version, db, user, b, body.reason))
+
+
+# ---------------------------------------------------------------- Excel export (4E)
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@router.post("/boqs/{bid}/exports", status_code=201)
+def create_export(bid: uuid.UUID, user: User = Depends(require("boq:read")), db: Session = Depends(get_db)) -> dict:
+    b = get_boq(db, bid, user)
+    if b.status != "approved" and not has_perm(user.role, "boq:write"):
+        raise HTTPException(403, "Chỉ người lập BOQ được xuất bản nháp; người xem chỉ xuất BOQ đã phê duyệt")
+    e = export_boq(db, user, b)
+    db.commit()
+    return export_dict(e)
+
+
+@router.get("/boqs/{bid}/exports")
+def list_exports(bid: uuid.UUID, user: User = Depends(require("boq:read")), db: Session = Depends(get_db)) -> list[dict]:
+    b = get_boq(db, bid, user)
+    return [export_dict(e) for e in db.scalars(select(BoqExport).where(BoqExport.boq_id == b.id).order_by(BoqExport.created_at.desc()))]
+
+
+@router.get("/projects/{pid}/boq-exports")
+def project_exports(pid: uuid.UUID, user: User = Depends(require("boq:read")), db: Session = Depends(get_db)) -> list[dict]:
+    p = db.get(Project, pid)
+    if not p or p.company_id != user.company_id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+    return [export_dict(e) for e in db.scalars(select(BoqExport).where(BoqExport.project_id == pid).order_by(BoqExport.created_at.desc()))]
+
+
+@router.get("/boq-exports/{eid}/download")
+def download_export(eid: uuid.UUID, user: User = Depends(require("boq:read")), db: Session = Depends(get_db)):
+    e = db.get(BoqExport, eid)
+    if not e or e.company_id != user.company_id:
+        raise HTTPException(404, "Không tìm thấy tệp xuất")
+    audit(db, user, "download", "boq_export", e.id)
+    db.commit()
+    return FileResponse(open_path(e.storage_key), media_type=XLSX, filename=e.filename)

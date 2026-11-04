@@ -105,3 +105,18 @@ def test_boq_review_and_approval_on_postgres(pg, monkeypatch):
     assert approved["status"] == "approved"
     t = {(x["category"], x["unit"]): x["accepted"] for x in approved["totals"]}
     assert t[("concrete", "m3")] == "4.3200" and t[("steel_box", "kg")] == "180.8640"
+
+
+def test_boq_export_on_postgres(pg, monkeypatch, tmp_path):
+    import io
+
+    import openpyxl
+    from tests.drawing_helpers import make_boq, processed_drawing
+    use_ocr(monkeypatch, FakeOcr())
+    client, _ = pg
+    a = login(client, "admin@pga.test", "pw-admin-1")
+    boq = make_boq(client, a, [processed_drawing(client, a)["id"]]).json()
+    exp = client.post(f"{B}/boqs/{boq['id']}/exports", headers=a).json()
+    wb = openpyxl.load_workbook(io.BytesIO(client.get(f"{B}/boq-exports/{exp['id']}/download", headers=a).content))
+    assert wb.sheetnames == ["Tổng hợp", "BOQ", "Tính chi tiết", "Truy vết nguồn"]
+    assert client.get(f"{B}/boqs/{boq['id']}/exports", headers=a).json()[0]["sha256"] == exp["sha256"]

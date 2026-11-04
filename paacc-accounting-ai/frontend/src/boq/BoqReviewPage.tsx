@@ -1,9 +1,9 @@
 import { FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, errorText } from "../api";
+import { api, apiBlob, errorText } from "../api";
 import ItemEditor from "./ItemEditor";
 import { BOQ_STATUS, BOQ_STATUS_COLOR, CATEGORY, ORIGIN, REVIEW } from "./labels";
-import type { Boq, BoqItem, ModuleSpec } from "./types";
+import type { Boq, BoqExport, BoqItem, ModuleSpec } from "./types";
 
 export function qty(v: string | null, decimals: number): string {
   if (v == null) return "—";
@@ -19,7 +19,9 @@ export default function BoqReviewPage() {
   const [open, setOpen] = useState<string>();
   const [filter, setFilter] = useState("all");
   const [msg, setMsg] = useState("");
-  const load = useCallback(() => api<Boq>(`/boqs/${id}`).then(setBoq).catch((e) => setMsg(errorText(e))), [id]);
+  const [exports, setExports] = useState<BoqExport[]>([]);
+  const loadExports = useCallback(() => api<BoqExport[]>(`/boqs/${id}/exports`).then(setExports).catch(() => setExports([])), [id]);
+  const load = useCallback(() => { loadExports(); return api<Boq>(`/boqs/${id}`).then(setBoq).catch((e) => setMsg(errorText(e))); }, [id, loadExports]);
   useEffect(() => {
     load();
     api<{ modules: ModuleSpec[] }>("/takeoff/modules").then((r) => setModules(Object.fromEntries(r.modules.map((m) => [m.key, m])))).catch(() => {});
@@ -46,6 +48,18 @@ export default function BoqReviewPage() {
   }
   const updateItem = (it: BoqItem) => { load(); setOpen(it.id); };
   const note = () => (document.getElementById("boq-note") as HTMLInputElement | null)?.value ?? "";
+  async function exportExcel() {
+    try { await api(`/boqs/${boq!.id}/exports`, { method: "POST" }); setMsg(""); loadExports(); }
+    catch (e) { setMsg(errorText(e)); }
+  }
+  async function download(e: BoqExport) {
+    try {
+      const blob = await apiBlob(`/boq-exports/${e.id}/download`);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = e.filename; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    } catch (x) { setMsg(errorText(x)); }
+  }
 
   return (
     <main className="wide">
@@ -65,7 +79,11 @@ export default function BoqReviewPage() {
           <button className="danger" onClick={() => act("/decision", { decision: "return", note: note() })}>Trả lại</button>
           <span className="muted">Cần quyền phê duyệt; người trình không được tự duyệt.</span></>}
         {boq.status === "approved" && <button onClick={() => act("/new-version", { reason: note() }, (b) => navigate(`/boqs/${b.id}`))}>Tạo phiên bản mới</button>}
+        <button className="ghost" onClick={exportExcel}>Xuất Excel{boq.status === "approved" ? "" : " (bản nháp)"}</button>
       </div>
+      {exports.length > 0 && <details><summary>Lịch sử xuất Excel ({exports.length})</summary>
+        <ul className="list">{exports.map((e) => <li key={e.id}><button className="ghost" onClick={() => download(e)}>{e.filename}</button>
+          <span className="muted"> · v{e.boq_version_no} · {BOQ_STATUS[e.boq_status] ?? e.boq_status} · {e.item_count} hạng mục · {(e.size_bytes / 1024).toFixed(0)} KB · SHA-256 {e.sha256.slice(0, 12)}…</span></li>)}</ul></details>}
       {msg && <p className="error">{msg}</p>}
 
       <details><summary>Quy tắc đo bóc (thập phân {dec}, tỷ trọng thép {boq.rules.steel_density} kg/m³, hao hụt theo danh mục)</summary>

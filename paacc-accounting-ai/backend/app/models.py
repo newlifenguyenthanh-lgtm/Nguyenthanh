@@ -301,3 +301,19 @@ class BoqItemRevision(Base):
     snapshot: Mapped[dict] = mapped_column(JSON)
     reason: Mapped[str] = mapped_column(String(2000), default="")
     changed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+
+
+class BoqExport(Base):
+    """Every generated Excel file: linked to project, BOQ and the exact BOQ version/status exported."""
+    __tablename__ = "boq_exports"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    boq_id: Mapped[uuid.UUID] = fk("boqs")
+    project_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("projects.id"), index=True)
+    boq_version_no: Mapped[int]
+    boq_status: Mapped[str] = mapped_column(String(16))
+    filename: Mapped[str] = mapped_column(String(255))
+    sha256: Mapped[str] = mapped_column(String(64))
+    size_bytes: Mapped[int]
+    storage_key: Mapped[str] = mapped_column(String(255))
+    item_count: Mapped[int]
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))

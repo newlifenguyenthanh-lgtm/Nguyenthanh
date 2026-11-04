@@ -27,10 +27,12 @@ const modules = { modules: [{ key: "concrete_prism", title_vi: "Bê tông", cate
   fields: [{ name: "length", label_vi: "Chiều dài", kind: "dim" }, { name: "width", label_vi: "Chiều rộng", kind: "dim" },
     { name: "height", label_vi: "Chiều cao", kind: "dim" }, { name: "count", label_vi: "Số lượng", kind: "count" }] }] };
 
+const exp = { id: "e1", boq_version_no: 1, boq_status: "draft", filename: "BOQ_KC_v1_NHAP_20261104.xlsx", sha256: "a".repeat(64), size_bytes: 20480, item_count: 2, created_at: null };
+let exportsList: typeof exp[] = [];
 let calls: { url: string; method: string; body: unknown }[];
 let current: Boq;
 beforeEach(() => {
-  calls = []; current = boq;
+  calls = []; current = boq; exportsList = [];
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input).replace("/api/v1", ""), method = init?.method ?? "GET";
     calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
@@ -40,6 +42,8 @@ beforeEach(() => {
     if (url === "/boqs/b1/items/i1" && method === "PATCH") return json({ ...blocked, unit_system: "mm", quantity: "4.3200", has_blocking: false, flags: [] });
     if (url === "/boqs/b1/submit") return json({ detail: "Còn 2 hạng mục chưa rà soát (STT 1, 2)" }, 409);
     if (url === "/boqs/b1/decision") return json({ ...current, status: "approved" });
+    if (url === "/boqs/b1/exports" && method === "GET") return json(exportsList);
+    if (url === "/boqs/b1/exports" && method === "POST") { exportsList = [exp, ...exportsList]; return json(exp, 201); }
     return json({ detail: "not found" }, 404);
   }));
 });
@@ -88,5 +92,15 @@ describe("BOQ review", () => {
     fireEvent.click(approve[approve.length - 1]);
     await waitFor(() => expect(calls.some((c) => c.url === "/boqs/b1/decision")).toBe(true));
     expect(calls.find((c) => c.url === "/boqs/b1/decision")!.body).toEqual({ decision: "approve", note: "" });
+  });
+});
+
+describe("BOQ Excel export", () => {
+  it("creates an export and lists it in the history with version and status", async () => {
+    show();
+    fireEvent.click(await screen.findByText("Xuất Excel (bản nháp)"));
+    expect(await screen.findByText("BOQ_KC_v1_NHAP_20261104.xlsx")).toBeTruthy();
+    expect(screen.getByText(/v1 · Nháp · 2 hạng mục · 20 KB/)).toBeTruthy();
+    expect(calls.some((c) => c.url === "/boqs/b1/exports" && c.method === "POST")).toBe(true);
   });
 });

@@ -50,7 +50,7 @@ def persist_extraction(db: Session, d: Drawing, r: ExtractionResult) -> None:
             db.add(ExtractedItem(company_id=d.company_id, drawing_id=d.id, page_no=p.page_no, kind="table",
                                  text=" | ".join(" ; ".join(r) for r in t.rows)[:4000],
                                  x0=t.bbox[0], y0=t.bbox[1], x1=t.bbox[2], y1=t.bbox[3], source="text",
-                                 confidence=None, data={"rows": t.rows}))
+                                 confidence=None, data={"rows": t.rows, "cells": [[list(c) if c else None for c in r] for r in t.cells]}))
     d.page_count, d.pdf_metadata = r.page_count, r.metadata
 
 

@@ -73,3 +73,16 @@ def test_drawing_workflow_and_isolation_on_postgres(pg, monkeypatch):
     assert [p["kind"] for p in full["pages"]] == ["vector", "scanned"]
     assert client.get(f"{B}/drawings/{d['id']}", headers=b).status_code == 404
     assert client.get(f"{B}/office/departments/engineering_qs", headers=a).json()["agents"][0]["status"] == "completed"
+
+
+def test_boq_generation_on_postgres(pg, monkeypatch):
+    from tests.drawing_helpers import make_boq, processed_drawing
+    use_ocr(monkeypatch, FakeOcr())
+    client, _ = pg
+    a = login(client, "admin@pga.test", "pw-admin-1")
+    d = processed_drawing(client, a)
+    boq = make_boq(client, a, [d["id"]]).json()
+    qs = {i["quantity"] for i in boq["items"]}
+    assert {"4.3200", "180.8640", "37.6800", "132.5800", "180.8600"} <= qs
+    again = client.get(f"{B}/boqs/{boq['id']}", headers=a).json()
+    assert [i["quantity"] for i in again["items"]] == [i["quantity"] for i in boq["items"]]

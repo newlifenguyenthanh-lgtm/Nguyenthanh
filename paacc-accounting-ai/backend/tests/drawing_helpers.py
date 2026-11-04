@@ -33,3 +33,18 @@ def upload(env, headers, data: bytes, title="Bản vẽ KC", project_id=None, na
 def process(env, headers, doc_id, version_no=None):
     return env.post(f"{B}/drawings", json={"document_id": doc_id, **({"version_no": version_no} if version_no else {})},
                     headers=headers)
+
+
+def processed_drawing(env, headers, data=None, units: str | None = "mm", **kw):
+    """Upload + process a synthetic sheet; optionally confirm page units like an engineer would."""
+    from tests import pdf_factory as pf
+    d = process(env, headers, upload(env, headers, data or pf.vector_pdf(**kw))["id"]).json()
+    assert d["status"] == "processed", d
+    if units:
+        r = env.post(f"{B}/drawings/{d['id']}/pages/1/calibration", json={"units": units, "scale_ratio": 100}, headers=headers)
+        assert r.status_code == 200, r.text
+    return d
+
+
+def make_boq(env, headers, drawing_ids, title="BOQ KC-01", **kw):
+    return env.post(f"{B}/boqs", json={"title": title, "drawing_ids": drawing_ids, **kw}, headers=headers)

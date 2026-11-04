@@ -15,14 +15,14 @@ ROLE_PERMS: dict[str, set[str]] = {
     "director": {"project:read", "project:write", "contract:read", "contract:write",
                  "contract:approve", "partner:read", "partner:write", "audit:read", "document:read", "document:write",
                  "office:read", "office:manage", "ai_task:write", "ai_task:approve",
-                 "drawing:read", "drawing:write"},
+                 "drawing:read", "drawing:write", "boq:read", "boq:write", "boq:approve"},
     "accountant": {"project:read", "contract:read", "contract:write", "partner:read", "partner:write", "document:read", "document:write",
-                   "office:read", "ai_task:write", "drawing:read"},
+                   "office:read", "ai_task:write", "drawing:read", "boq:read"},
     "qs_engineer": {"project:read", "document:read", "document:write", "office:read", "ai_task:write",
-                    "drawing:read", "drawing:write"},
+                    "drawing:read", "drawing:write", "boq:read", "boq:write"},
     "site_manager": {"project:read", "project:write", "contract:read", "partner:read", "document:read", "document:write",
-                     "office:read", "ai_task:write", "drawing:read", "drawing:write"},
-    "viewer": {"project:read", "contract:read", "partner:read", "document:read", "office:read", "drawing:read"},
+                     "office:read", "ai_task:write", "drawing:read", "drawing:write", "boq:read", "boq:write"},
+    "viewer": {"project:read", "contract:read", "partner:read", "document:read", "office:read", "drawing:read", "boq:read"},
 }
 
 

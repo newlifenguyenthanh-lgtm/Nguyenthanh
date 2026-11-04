@@ -36,6 +36,7 @@ class TableResult:
     page_no: int
     bbox: BBox
     rows: list[list[str]]
+    cells: list[list[BBox | None]] = field(default_factory=list)  # per-cell bbox (displayed space) for traceability
 
 
 @dataclass
@@ -142,8 +143,9 @@ def _page(page, page_no, ocr, min_chars, ocr_dpi, max_side, ocr_mixed) -> PageRe
             words = page.get_text("words", sort=True)
             for t in page.find_tables().tables:
                 rows = [[_cell_text(c, words) for c in r.cells] for r in t.rows]
+                cells = [[_disp(c, page) if c else None for c in r.cells] for r in t.rows]
                 if any(any(c for c in r) for r in rows):
-                    res.tables.append(TableResult(page_no, _disp(t.bbox, page), rows))
+                    res.tables.append(TableResult(page_no, _disp(t.bbox, page), rows, cells))
         except Exception as e:  # noqa: BLE001
             res.warnings.append(f"table_detection_failed: {e}")
 

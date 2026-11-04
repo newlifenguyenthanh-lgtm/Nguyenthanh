@@ -221,3 +221,83 @@ class ExtractedItem(Base):
     source: Mapped[str] = mapped_column(String(16))  # text | ocr | analysis
     confidence: Mapped[float | None]  # 0-1, None = exact embedded text
     data: Mapped[dict | None] = mapped_column(JSON)
+
+
+QtyNum = Numeric(20, 4)
+
+
+class Boq(Base):
+    """A versioned bill of quantities. Approved versions are immutable; changes need a new version."""
+    __tablename__ = "boqs"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    project_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("projects.id"), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    version_no: Mapped[int] = mapped_column(default=1)
+    previous_boq_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("boqs.id"))
+    status: Mapped[str] = mapped_column(String(16), default="draft")  # draft|submitted|approved|returned
+    rules: Mapped[dict] = mapped_column(JSON)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    generation_task_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("ai_tasks.id"))
+    approval_task_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("ai_tasks.id"))
+    submitted_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    submitted_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    decided_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    decision_note: Mapped[str] = mapped_column(String(2000), default="")
+
+
+class BoqSource(Base):
+    """Explicit BOQ <-> drawing <-> document version relationship."""
+    __tablename__ = "boq_sources"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    boq_id: Mapped[uuid.UUID] = fk("boqs")
+    drawing_id: Mapped[uuid.UUID] = fk("drawings")
+    document_version_id: Mapped[uuid.UUID] = fk("document_versions")
+
+
+class BoqItem(Base):
+    __tablename__ = "boq_items"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    boq_id: Mapped[uuid.UUID] = fk("boqs")
+    item_no: Mapped[int]
+    category: Mapped[str] = mapped_column(String(32))
+    description: Mapped[str] = mapped_column(String(1000))
+    spec: Mapped[str] = mapped_column(String(500), default="")
+    module: Mapped[str | None] = mapped_column(String(64))  # None = stated quantity (schedule table / engineer)
+    inputs: Mapped[dict] = mapped_column(JSON)  # name -> {value, origin, source_item_id, ...}
+    unit_system: Mapped[str | None] = mapped_column(String(8))
+    stated_unit: Mapped[str | None] = mapped_column(String(16))
+    waste_override: Mapped[Decimal | None] = mapped_column(Numeric(6, 4))
+    waste_factor: Mapped[Decimal] = mapped_column(Numeric(6, 4), default=Decimal("0"))
+    quantity: Mapped[Decimal | None] = mapped_column(QtyNum)
+    unit: Mapped[str | None] = mapped_column(String(16))
+    formula_text: Mapped[str] = mapped_column(String(2000), default="")
+    excel_expr: Mapped[str | None] = mapped_column(String(1000))
+    calc_inputs: Mapped[dict | None] = mapped_column(JSON)
+    origin: Mapped[str] = mapped_column(String(16))  # extracted | ai_inferred | engineer | mixed
+    review_status: Mapped[str] = mapped_column(String(16), default="pending")  # pending|accepted|rejected
+    source_flags: Mapped[list | None] = mapped_column(JSON)
+    flags: Mapped[list | None] = mapped_column(JSON)
+    duplicates: Mapped[list | None] = mapped_column(JSON)
+    notes: Mapped[str] = mapped_column(String(4000), default="")
+    drawing_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("drawings.id"))
+    page_no: Mapped[int | None]
+    bbox: Mapped[list | None] = mapped_column(JSON)
+    source_item_ids: Mapped[list | None] = mapped_column(JSON)
+    mark: Mapped[str | None] = mapped_column(String(32))
+    section_key: Mapped[str | None] = mapped_column(String(64))
+    version: Mapped[int] = mapped_column(default=1)
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+
+
+class BoqItemRevision(Base):
+    """Append-only history of every change to a BOQ item."""
+    __tablename__ = "boq_item_revisions"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    boq_id: Mapped[uuid.UUID] = fk("boqs")
+    item_id: Mapped[uuid.UUID] = fk("boq_items")
+    version: Mapped[int]
+    action: Mapped[str] = mapped_column(String(32))
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    reason: Mapped[str] = mapped_column(String(2000), default="")
+    changed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))

@@ -48,6 +48,8 @@ def test_vector_table_extraction():
     assert rows[0][0] == "STT" and rows[1][1].startswith("D") and rows[2][4] == "180,86"
     x0, y0, x1, y1 = p.tables[0].bbox
     assert (round(x0), round(y0)) == (60, 600)
+    cell = p.tables[0].cells[2][4]  # "180,86": 5th column x 500..580 (widths 40,220,120,60,80 from x=60), row y 640..660
+    assert [round(v) for v in cell] == [500, 640, 580, 660]
 
 
 def test_rotated_page_bboxes_in_displayed_space():

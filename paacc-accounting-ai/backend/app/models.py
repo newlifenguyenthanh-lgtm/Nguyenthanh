@@ -11,7 +11,9 @@ Money = Numeric(20, 2)
 
 class Base(DeclarativeBase):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Python-side default gives microsecond precision (stable ordering on SQLite); server default kept for raw SQL.
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
+                                                    default=lambda: dt.datetime.now(dt.timezone.utc))
 
 
 def fk(table: str):
@@ -187,6 +189,21 @@ class DrawingPage(Base):
     ocr_engine: Mapped[str | None] = mapped_column(String(128))
     ocr_mean_confidence: Mapped[float | None]
     warnings: Mapped[list | None] = mapped_column(JSON)
+    # --- analysis (4B): detected values are candidates; *_status says whether a human confirmed them
+    drawing_number: Mapped[str | None] = mapped_column(String(64), index=True)
+    title: Mapped[str | None] = mapped_column(String(500))
+    revision: Mapped[str | None] = mapped_column(String(16))
+    title_fields: Mapped[dict | None] = mapped_column(JSON)
+    disciplines: Mapped[list | None] = mapped_column(JSON)
+    view_types: Mapped[list | None] = mapped_column(JSON)
+    scale_candidates: Mapped[list | None] = mapped_column(JSON)
+    scale_status: Mapped[str] = mapped_column(String(24), default="not_analyzed")
+    scale_ratio: Mapped[int | None]  # set ONLY by human confirmation
+    units_candidates: Mapped[list | None] = mapped_column(JSON)
+    units_status: Mapped[str] = mapped_column(String(24), default="not_analyzed")
+    units: Mapped[str | None] = mapped_column(String(8))  # set ONLY by human confirmation
+    calibrated_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    calibrated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ExtractedItem(Base):

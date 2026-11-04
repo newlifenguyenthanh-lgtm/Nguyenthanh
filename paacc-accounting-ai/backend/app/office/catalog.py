@@ -7,7 +7,7 @@ ROOM_W, ROOM_D, GAP = 8.0, 6.0, 1.5
 DEFAULT_DEPARTMENTS: list[tuple[str, str, str, str | None, str, int, tuple[str, ...]]] = [
     ("board", "Ban Giám đốc", "#8a6d3b", "/dashboard", "available", 2, ()),
     ("bidding", "Phòng Đấu thầu", "#3b6e8a", "/documents?kind=quote", "partial", 6, ("quote", "email")),
-    ("engineering_qs", "Phòng Kỹ thuật & Bóc tách khối lượng", "#3b8a5a", "/documents?kind=drawing", "partial", 4, ("drawing", "boq")),
+    ("engineering_qs", "Phòng Kỹ thuật & Bóc tách khối lượng", "#3b8a5a", "/drawings", "partial", 4, ("drawing", "boq")),
     ("cad_design", "Phòng AutoCAD & Thiết kế", "#5a3b8a", None, "planned", 5, ("drawing",)),
     ("estimation", "Phòng Dự toán", "#8a3b6e", None, "planned", 6, ("boq", "quote")),
     ("contract_payment", "Phòng Hợp đồng & Thanh toán", "#8a5a3b", "/contracts", "partial", 7, ("contract",)),

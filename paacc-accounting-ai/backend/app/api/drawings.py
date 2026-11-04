@@ -1,8 +1,9 @@
+import datetime as dt
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -45,10 +46,11 @@ def page_dict(p: DrawingPage) -> dict:
     out = {c: getattr(p, c) for c in ("page_no", "width_pt", "height_pt", "rotation", "kind", "text_chars",
                                       "image_coverage", "vector_paths", "ocr_used", "ocr_engine", "ocr_mean_confidence")}
     out["warnings"] = p.warnings or []
-    for c in ("drawing_number", "title", "revision", "drawing_types", "disciplines", "scale_candidates", "scale_status",
-              "scale_ratio", "units_candidates", "units", "units_status", "title_block_bbox"):
-        if hasattr(p, c):
-            out[c] = getattr(p, c)
+    for c in ("drawing_number", "title", "revision", "title_fields", "disciplines", "view_types", "scale_candidates",
+              "scale_status", "scale_ratio", "units_candidates", "units_status", "units"):
+        out[c] = getattr(p, c)
+    out["calibrated_at"] = p.calibrated_at.isoformat() if p.calibrated_at else None
+    out["calibrated_by"] = str(p.calibrated_by) if p.calibrated_by else None
     return out
 
 
@@ -116,6 +118,56 @@ def list_items(did: uuid.UUID, page: int | None = None, kind: str | None = None,
         stmt = stmt.where(ExtractedItem.text.ilike(f"%{q}%"))
     stmt = stmt.order_by(ExtractedItem.page_no, ExtractedItem.y0, ExtractedItem.x0).limit(limit).offset(offset)
     return [item_dict(i) for i in db.scalars(stmt)]
+
+
+class CalibrationIn(BaseModel):
+    scale_ratio: int | None = Field(None, gt=0, le=100000)
+    not_to_scale: bool = False
+    units: str | None = Field(None, pattern="^(mm|cm|m)$")
+    note: str = ""
+
+
+@router.post("/drawings/{did}/pages/{n}/calibration")
+def calibrate(did: uuid.UUID, n: int, body: CalibrationIn, user: User = Depends(require("drawing:write")),
+              db: Session = Depends(get_db)) -> dict:
+    """Human confirmation of scale/units. Detected candidates are never applied automatically."""
+    d = get_drawing(db, did, user)
+    p = db.scalar(select(DrawingPage).where(DrawingPage.drawing_id == d.id, DrawingPage.page_no == n))
+    if not p:
+        raise HTTPException(404, "Trang không tồn tại")
+    if body.scale_ratio is None and not body.not_to_scale and body.units is None:
+        raise HTTPException(422, "Cần xác nhận tỷ lệ, 'không theo tỷ lệ' hoặc đơn vị")
+    if body.scale_ratio and body.not_to_scale:
+        raise HTTPException(422, "Không thể vừa có tỷ lệ vừa 'không theo tỷ lệ'")
+    before = {"scale_status": p.scale_status, "scale_ratio": p.scale_ratio, "units_status": p.units_status, "units": p.units}
+    warnings = []
+    if body.scale_ratio or body.not_to_scale:
+        detected = {c["ratio"] for c in (p.scale_candidates or [])}
+        if body.scale_ratio and detected and body.scale_ratio not in detected:
+            warnings.append("scale_differs_from_detected")
+        p.scale_ratio = body.scale_ratio
+        p.scale_status = "not_to_scale" if body.not_to_scale else "confirmed"
+    if body.units:
+        detected_u = {c["unit"] for c in (p.units_candidates or [])}
+        if detected_u and body.units not in detected_u:
+            warnings.append("units_differ_from_detected")
+        p.units, p.units_status = body.units, "confirmed"
+    p.calibrated_by, p.calibrated_at = user.id, dt.datetime.now(dt.timezone.utc)
+    audit(db, user, "calibrate", "drawing_page", p.id, {"drawing_id": str(d.id), "page_no": n, "before": before,
+          "after": {"scale_status": p.scale_status, "scale_ratio": p.scale_ratio, "units": p.units},
+          "warnings": warnings, "note": body.note})
+    db.commit()
+    return {**page_dict(p), "warnings": (p.warnings or []) + warnings}
+
+
+@router.get("/drawing-sheets")
+def find_sheets(number: str, user: User = Depends(require("drawing:read")), db: Session = Depends(get_db)) -> list[dict]:
+    """All processed pages carrying a drawing number (revision history across uploads)."""
+    rows = db.execute(select(DrawingPage, Drawing).join(Drawing, Drawing.id == DrawingPage.drawing_id).where(
+        DrawingPage.company_id == user.company_id, DrawingPage.drawing_number == number).order_by(Drawing.created_at)).all()
+    return [{"drawing_id": str(d.id), "page_no": p.page_no, "revision": p.revision, "title": p.title,
+             "document_id": str(d.document_id), "version_no": d.version_no, "sha256": d.sha256, "status": d.status}
+            for p, d in rows]
 
 
 @router.get("/drawings/{did}/pages/{n}/image")

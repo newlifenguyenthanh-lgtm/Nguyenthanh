@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     component_high: float = 0.90
     component_medium: float = 0.70
     component_margin: float = 0.10
+    # Phase 5E-1 quantity engine: rounding applied once, to the final value only
+    quantity_precision: int = 3
+    quantity_rounding: str = "ROUND_HALF_UP"
     ocr_enabled: bool = True
     ocr_dpi: int = 300
     ocr_max_side_px: int = 7000

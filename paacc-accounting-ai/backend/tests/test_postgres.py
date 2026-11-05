@@ -190,3 +190,27 @@ def test_components_on_postgres(pg, monkeypatch):
     assert client.get(f"{B}/components/{plan['id']}", headers=other).status_code == 404
     assert [h["action"] for h in client.get(f"{B}/components/{plan['id']}/history", headers=a).json()] == \
         ["confirm", "prepare_boq_candidate"]
+
+
+def test_quantity_results_on_postgres(pg, monkeypatch):
+    from tests import component_helpers as H
+    use_ocr(monkeypatch, FakeOcr())
+    client, _ = pg
+    a = login(client, "admin@pga.test", "pw-admin-1")
+    d = process(client, a, upload(client, a, H.sheet_fence())["id"]).json()
+    client.post(f"{B}/drawings/{d['id']}/pages/1/calibration", json={"scale_ratio": 100}, headers=a)
+    client.post(f"{B}/drawings/{d['id']}/components/run", headers=a)
+    f = next(c for c in client.get(f"{B}/drawings/{d['id']}/components", headers=a).json() if c["component_type"] == "FENCE")
+    assert client.post(f"{B}/components/{f['id']}/quantity/run", json={}, headers=a).status_code == 422  # still CANDIDATE
+    client.post(f"{B}/components/{f['id']}/review", json={}, headers=a)
+    client.post(f"{B}/components/{f['id']}/confirm", json={}, headers=a)
+    r1 = client.post(f"{B}/components/{f['id']}/quantity/run", json={}, headers=a).json()
+    client.post(f"{B}/measurements/{r1['measurement_id']}/confirm", json={"note": "ok"}, headers=a)
+    r2 = client.post(f"{B}/components/{f['id']}/quantity/run", json={"precision": 2}, headers=a).json()
+    got = client.get(f"{B}/quantity-results/{r2['id']}", headers=a).json()
+    assert (got["raw_value"], got["quantity_value"], got["unit"], got["status"]) == ("20.461", "20.46", "m", "CALCULATED")
+    assert got["provenance"]["measurements"][0]["status"] == "confirmed"
+    assert client.get(f"{B}/quantity-results/{r1['id']}", headers=a).json()["superseded_by_id"] == r2["id"]
+    other = login(client, "admin@pgb.test", "pw-admin-2")
+    assert client.get(f"{B}/quantity-results/{r2['id']}", headers=other).status_code == 404
+    assert client.post(f"{B}/quantity-results/{r2['id']}/review", json={"decision": "confirm"}, headers=a).json()["status"] == "CONFIRMED"

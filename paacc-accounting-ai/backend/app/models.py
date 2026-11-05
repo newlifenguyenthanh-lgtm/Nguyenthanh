@@ -596,6 +596,42 @@ class ComponentBoqCandidate(Base):
     measurement_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("measurements.id"))
     status: Mapped[str] = mapped_column(String(16), default="DRAFT")  # DRAFT | WITHDRAWN
     approval_status: Mapped[str] = mapped_column(String(16), default="NOT_APPROVED")
+    # 5E-1: a later phase may point the hand-over at a reviewed quantity result (nullable; unused until then)
+    quantity_result_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey(
+        "quantity_results.id", name="fk_component_boq_candidates_quantity_result"))
     note: Mapped[str] = mapped_column(String(2000), default="")
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# ---------------------------------------------------------------- Phase 5E-1: quantity engine foundation
+class QuantityResult(Base):
+    """One versioned, reproducible quantity of ONE confirmed component, derived from 5B measurement(s) by a named method.
+    raw_value (unrounded) + precision + rounding_rule -> quantity_value. Superseded versions are kept."""
+    __tablename__ = "quantity_results"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    project_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("projects.id"), index=True)
+    drawing_id: Mapped[uuid.UUID] = fk("drawings")
+    page_id: Mapped[uuid.UUID] = fk("drawing_pages")
+    component_id: Mapped[uuid.UUID] = fk("drawing_components")
+    measurement_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("measurements.id"), index=True)  # primary input
+    input_measurement_ids: Mapped[list] = mapped_column(JSON)
+    quantity_type: Mapped[str] = mapped_column(String(16), index=True)  # COUNT|LENGTH|AREA|VOLUME|WEIGHT|SPACING|PERIMETER
+    raw_value: Mapped[Decimal | None] = mapped_column(Numeric(30, 12))
+    quantity_value: Mapped[Decimal | None] = mapped_column(Numeric(24, 6))
+    unit: Mapped[str] = mapped_column(String(16))
+    precision: Mapped[int] = mapped_column(default=3)
+    rounding_rule: Mapped[str] = mapped_column(String(24), default="ROUND_HALF_UP")
+    calculation_method: Mapped[str] = mapped_column(String(32))
+    formula: Mapped[str] = mapped_column(String(500), default="")
+    parameters: Mapped[dict | None] = mapped_column(JSON)  # engineer-stated inputs WITH source (unit length / unit weight …)
+    source_component: Mapped[dict] = mapped_column(JSON)  # snapshot at calculation time (type, status, spec)
+    source_measurement: Mapped[list] = mapped_column(JSON)  # snapshot of each input measurement (kind, value, unit, status)
+    status: Mapped[str] = mapped_column(String(20), index=True)  # DRAFT|CALCULATED|REQUIRES_REVIEW|CONFIRMED|REJECTED|BLOCKED
+    reason: Mapped[str] = mapped_column(String(2000), default="")
+    version: Mapped[int] = mapped_column(default=1)
+    superseded_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("quantity_results.id"))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    reviewed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

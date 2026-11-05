@@ -9,7 +9,9 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Callable
 
 PI = Decimal("3.14159265358979323846264338")
-UNIT_TO_M = {"mm": Decimal("0.001"), "cm": Decimal("0.01"), "m": Decimal("1")}
+from app.quantity.units import factor as _unit_factor  # noqa: E402  (single unit table, 5E-1)
+
+UNIT_TO_M = {u: _unit_factor(u, "m") for u in ("mm", "cm", "m")}
 
 
 class CalcError(ValueError):

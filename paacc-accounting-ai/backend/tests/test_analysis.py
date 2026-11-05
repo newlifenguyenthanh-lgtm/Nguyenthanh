@@ -140,7 +140,8 @@ def test_classification():
 
 def test_table_classification():
     t = classify_table([["STT", "TÊN CẤU KIỆN", "QUY CÁCH", "ĐVT", "KHỐI LƯỢNG"], ["1", "Dầm", "300x600", "m3", "4,32"]])
-    assert t == {"header_map": {"0": "stt", "1": "description", "2": "spec", "3": "unit", "4": "quantity"}, "table_type": "material_schedule"}
+    assert t == {"header_map": {"0": "stt", "1": "description", "2": "spec", "3": "unit", "4": "quantity"}, "header_row": 0,
+                 "table_type": "material_schedule"}
     assert classify_table([["A", "B"], ["1", "2"]])["table_type"] == "unknown"
 
 

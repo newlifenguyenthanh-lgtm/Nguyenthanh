@@ -10,12 +10,22 @@ import re
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from app.pdf.analysis import fold, parse_number
+from app.pdf.analysis import Line, find_dimensions, fold, parse_number
 from app.takeoff.engine import MODULES, CalcError, MeasurementRules, calculate
 
 ORIGINS = ("extracted", "ai_inferred", "engineer")
 STANDARD_REBAR_MM = {6, 8, 10, 12, 14, 16, 18, 20, 22, 25, 28, 32, 36, 40}
-CATEGORY_ORDER = ["concrete", "rebar", "structural_steel", "steel_box", "plate", "other"]
+CATEGORY_ORDER = ["concrete", "rebar", "structural_steel", "steel_box", "plate",
+                  "traffic_sign", "sign_post", "road_marking", "guardrail", "fence", "safety_device", "other"]
+# road-safety (ATGT) work packages, checked before the structural rules (order matters: posts before signs)
+_ATGT = [
+    ("sign_post", re.compile(r"\bCOT\s+BIEN|GIA\s+TREO|GIA\s+LONG\s+MON|CAN\s+VUON")),
+    ("traffic_sign", re.compile(r"\bBIEN\b")),
+    ("road_marking", re.compile(r"VACH\s+SON|SON\s+PHAN\s+QUANG|\bVACH\s+\d")),
+    ("guardrail", re.compile(r"TON\s+(?:LUON\s+)?SONG|HO\s+LAN|TAM\s+SONG")),
+    ("fence", re.compile(r"HANG\s+RAO|\bB40\b")),
+    ("safety_device", re.compile(r"DINH\s+PHAN\s+QUANG|TIEU\s+PHAN\s+QUANG|LUOI\s+CHONG\s+CHOI|\bCOC\s+H\b|U\s+CHONG\s+VA")),
+]
 _ELEMENT = re.compile(r"\b(DAM|COT|MONG|SAN|GIANG|VACH|BE\s*TONG|BTCT)\b")
 _MARK = re.compile(r"\b(?:DAM|COT|MONG|GIANG|SAN)\s+([A-Z]{1,3}\d{1,3}[A-Z]?)\b")
 
@@ -46,6 +56,7 @@ class Candidate:
     flags: list[Flag] = field(default_factory=list)
     mark: str | None = None
     section_key: str | None = None
+    group_path: list[dict] = field(default_factory=list)  # [{"code": "4", "title": "..."}, ...] from the source table
 
 
 @dataclass
@@ -159,7 +170,21 @@ _UNIT_NORM = {"M3": "m3", "M2": "m2", "M": "m", "KG": "kg", "TAN": "tấn", "T":
               "BO": "bộ", "THANH": "thanh", "TAM": "tấm", "MD": "m"}
 
 
-def category_for(text: str) -> str:
+def atgt_category(text: str) -> str | None:
+    F = fold(text)
+    return next((cat for cat, rx in _ATGT if rx.search(F)), None)
+
+
+def category_for(text: str, group_titles: list[str] | None = None) -> str:
+    """Work package of an item. The deepest source group heading wins (a bolt listed under a guardrail heading is
+    guardrail material); otherwise the item text decides; structural rules apply last."""
+    for t in reversed(group_titles or []):
+        cat = atgt_category(t)
+        if cat:
+            return cat
+    cat = atgt_category(text)
+    if cat:
+        return cat
     F = fold(text)
     if re.search(r"THEP\s+HOP|\bRHS\b|\bSHS\b", F):
         return "steel_box"
@@ -174,44 +199,119 @@ def category_for(text: str) -> str:
     return "other"
 
 
-def candidates_from_table(table: dict, drawing_id: str) -> list[Candidate]:
+_CODE = re.compile(r"^(?:[IVXLC]+|\d+(?:\.\d+)*)\.?$")
+
+
+def code_level(code: str) -> int:
+    """'I' -> 0 (section), '4' -> 1, '4.1' -> 2, '4.1.2' -> 3."""
+    c = code.strip().rstrip(".")
+    return 0 if re.fullmatch(r"[IVXLC]+", c) else c.count(".") + 1
+
+
+@dataclass
+class TableContext:
+    """Hierarchy state carried across tables and pages of one drawing (a group may continue on the next page)."""
+    stack: list[dict] = field(default_factory=list)  # [{"code", "title", "has_quantity"}]
+
+    def push(self, code: str, title: str, has_quantity: bool):
+        level = code_level(code)
+        self.stack = [g for g in self.stack if code_level(g["code"]) < level] + [{"code": code.strip().rstrip("."), "title": title, "has_quantity": has_quantity}]
+
+    def path(self) -> list[dict]:
+        return [{"code": g["code"], "title": g["title"]} for g in self.stack]
+
+
+def _row_code(row: list[str], hm: dict[str, int]) -> str:
+    c = row[hm["stt"]].strip() if "stt" in hm and hm["stt"] < len(row) else ""
+    return c if c and _CODE.match(c) else ""
+
+
+def has_children(code: str, following: list[list[str]], hm: dict[str, int]) -> bool:
+    """A coded row without quantity is a group heading only if what follows belongs to it: a deeper code, or an
+    uncoded DATA row (with quantity or unit). Uncoded rows without either (labels, sub-headers, 'Cộng' totals) are
+    skipped while looking. Otherwise the coded row is an item whose quantity is missing."""
+    data_cols = [hm[k] for k in ("quantity", "weight", "unit") if k in hm]
+    for row in following:
+        if not any(x.strip() for x in row):
+            continue
+        c = _row_code(row, hm)
+        if c:
+            return code_level(c) > code_level(code)
+        if any(i < len(row) and row[i].strip() for i in data_cols):
+            return True
+    return False
+
+
+def table_body(table: dict) -> list[list[str]]:
+    data = table["data"]
+    return data["rows"][(data.get("header_row") or 0) + 1:]
+
+
+def candidates_from_table(table: dict, drawing_id: str, ctx: TableContext | None = None,
+                          following_rows: list[list[str]] | None = None) -> list[Candidate]:
+    """following_rows: body rows of the next schedule table(s) - a group may continue across a page break."""
     data = table["data"]
     if data.get("table_type") != "material_schedule":
         return []
+    ctx = ctx if ctx is not None else TableContext()
     hm = {v: int(k) for k, v in data["header_map"].items()}
     qcol = hm.get("quantity", hm.get("weight"))
     if qcol is None:
         return []
     out = []
     cells = data.get("cells") or []
-    for r, row in enumerate(data["rows"][1:], start=1):
+    first = (data.get("header_row") or 0) + 1
+    body = data["rows"]
+    for r, row in enumerate(body[first:], start=first):
         if not any(row):
             continue
-        get = lambda name: row[hm[name]] if name in hm and hm[name] < len(row) else ""
-        raw_q = row[qcol] if qcol < len(row) else ""
+        get = lambda name: row[hm[name]].strip() if name in hm and hm[name] < len(row) else ""
+        raw_q = row[qcol].strip() if qcol < len(row) else ""
+        code, desc, spec = get("stt"), get("description") or get("mark"), get("spec")
+        unit_raw = get("unit") or ("kg" if "quantity" not in hm and "weight" in hm and raw_q else "")
+        if not raw_q and not unit_raw:
+            coded_heading = bool(code and _CODE.match(code) and desc)
+            if not coded_heading or has_children(code, body[r + 1:] + (following_rows or []), hm):
+                # group heading ("4.2 Tôn sóng cải tạo") or sub-header / total row: structure, not a BOQ item
+                if coded_heading:
+                    ctx.push(code, desc, has_quantity=False)
+                continue
         qv, amb = parse_number(raw_q) if raw_q else (None, False)
         flags = []
         if not raw_q:
             flags.append(Flag("quantity_missing", "blocking", "Ô khối lượng trong bảng để trống"))
         elif qv is None:
             flags.append(Flag("ambiguous_number", "blocking", f"Khối lượng '{raw_q}' mơ hồ (dấu phân cách) – cần nhập lại"))
-        unit_raw = get("unit") or ("kg" if "quantity" not in hm and "weight" in hm else "")
         unit = _UNIT_NORM.get(fold(unit_raw).replace(" ", "").replace(".", ""), unit_raw or None)
         if not unit:
             flags.append(Flag("unit_missing", "blocking", "Bảng không ghi đơn vị tính cho dòng này"))
+        coded = bool(code and _CODE.match(code))
+        if coded:
+            ctx.push(code, desc, has_quantity=True)  # a priced assembly: following uncoded rows are its components
+        elif ctx.stack and ctx.stack[-1]["has_quantity"]:
+            parent = ctx.stack[-1]
+            flags.append(Flag("component_of_parent", "info",
+                              f"Thành phần của hạng mục {parent['code']} ({parent['title']}) – không phải khối lượng cộng thêm"))
+        path = ctx.path()
         row_boxes = [c for c in (cells[r] if r < len(cells) else []) if c]
         bbox = [min(c[0] for c in row_boxes), min(c[1] for c in row_boxes), max(c[2] for c in row_boxes), max(c[3] for c in row_boxes)] \
             if row_boxes else [table["bbox"][0], table["bbox"][1], table["bbox"][2], table["bbox"][3]]
-        desc = get("description") or get("mark") or f"Dòng {r}"
-        spec = get("spec")
+        desc = desc or f"Dòng {r}"
         F = fold(f"{desc} {spec}")
-        mark = re.search(r"\b([A-Z]{1,3}\d{1,3}[A-Z]?)\b", fold(desc))
+        doubtful = [f.raw for f in find_dimensions(Line("cell", table["page_no"], f"{desc} {spec}", (0, 0, 0, 0)))
+                    if {"ambiguous_number", "implausible_value"} & set(f.flags)]
+        if doubtful:
+            flags.append(Flag("description_value_unconfirmed", "warning",
+                              "Quy cách có giá trị cần kỹ sư xác nhận: " + ", ".join(doubtful)))
+        mark = re.search(r"\b([A-Z]{1,3}\d{1,3}[A-Z]?)\b(?![.,]\d)", fold(desc))
         sec = re.search(r"(\d+(?:[.,]\d+)?)\s*X\s*(\d+(?:[.,]\d+)?)(?:\s*X\s*(\d+(?:[.,]\d+)?))?", F)
-        out.append(Candidate(category=category_for(f"{desc} {spec}"), description=desc, spec=spec, module=None,
+        titles = [g["title"] for g in path[:-1]] if coded else [g["title"] for g in path]
+        out.append(Candidate(category=category_for(f"{desc} {spec}", titles), description=desc, spec=spec, module=None,
                              inputs={"quantity": {**_inp(format(qv, "f") if qv is not None else None, table["id"]), "cell": [r, qcol], "raw": raw_q}},
                              unit_system=None, stated_unit=unit, page_no=table["page_no"], bbox=bbox, source_item_ids=[table["id"]],
                              drawing_id=drawing_id, flags=flags, mark=mark.group(1) if mark else None,
-                             section_key="x".join(g.replace(",", ".") for g in sec.groups() if g) if sec else None))
+                             section_key="x".join(g.replace(",", ".") for g in sec.groups() if g) if sec else None,
+                             group_path=path))
     return out
 
 

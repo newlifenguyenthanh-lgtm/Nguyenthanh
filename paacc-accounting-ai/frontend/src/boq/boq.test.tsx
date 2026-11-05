@@ -16,7 +16,7 @@ const blocked: BoqItem = {
 const stated: BoqItem = { ...blocked, id: "i2", item_no: 2, module: null, description: "Dầm D1", unit_system: null, stated_unit: "m3",
   inputs: { quantity: { value: "4.32", origin: "extracted", source_item_id: "t1", raw: "4,32", cell: [1, 4] } }, quantity: "4.3200",
   formula_text: "4.32 (trích nguyên văn bảng thống kê)", flags: [{ code: "possible_duplicate", severity: "warning", message: "Có thể trùng (khối lượng khớp)" }],
-  has_blocking: false };
+  has_blocking: false, group_path: [{ code: "I", title: "An toàn giao thông" }, { code: "4.1", title: "Tôn sóng" }] };
 const boq: Boq = {
   id: "b1", title: "BOQ KC-01", version_no: 1, previous_boq_id: null, status: "draft", project_id: null,
   rules: { decimals: 3, steel_density: "7850", waste: {} }, submitted_at: null, decided_at: null, decision_note: "", created_at: null,
@@ -60,6 +60,8 @@ describe("BOQ review", () => {
     const rows = screen.getAllByRole("row");
     expect(rows.some((r) => r.textContent?.includes("4,320") && r.textContent.includes("Trích xuất"))).toBe(true);
     expect(screen.getAllByText("—").length).toBeGreaterThan(0); // blocked item has no quantity
+    const group = screen.getByText("4.1"); // source hierarchy code (Phase 4.1)
+    expect(group.getAttribute("title")).toBe("I An toàn giao thông › 4.1 Tôn sóng");
   });
 
   it("blocks accepting an item with blocking flags and links to the source region", async () => {

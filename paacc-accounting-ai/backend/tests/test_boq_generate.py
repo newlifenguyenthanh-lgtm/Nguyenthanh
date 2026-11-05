@@ -113,3 +113,62 @@ def test_duplicate_groups():
     assert {"other_id": "c", "reason": "schedule_and_annotation", "quantities_match": True} in g["a"]
     assert all(x["other_id"] != "d" for x in g["a"])  # different mark -> not a duplicate
     assert "d" not in g or all(x["other_id"] != "c" for x in g["d"])  # two table rows are never compared to each other
+
+
+# ---------------------------------------------------------------- Phase 4.1 regressions (schedule tables of real quotations)
+from app.pdf.analysis import classify_table  # noqa: E402
+from tests import pdf_factory as pf  # noqa: E402
+
+
+def quote_table(rows, page=1, tid="T"):
+    data = {"rows": rows, "cells": [[None] * 7 for _ in rows]}
+    data.update(classify_table(rows))
+    return {"id": tid, "page_no": page, "bbox": [0, 0, 100, 100], "data": data}
+
+
+def test_header_found_below_text_printed_above_the_table():
+    # B1: the real table's row 0 was the letterhead block; B2: combined header "Chủng loại, quy cách"
+    rows = [["Hà Nội ... BÁO GIÁ ... Kính gửi", "", "", "", "", "", ""], pf.QUOTE_HEADER] + pf.QUOTE_PAGE1
+    t = quote_table(rows)
+    assert t["data"]["header_row"] == 1 and t["data"]["header_map"]["1"] == "description"
+    assert t["data"]["header_map"]["4"] == "unit_price"  # recognised, never imported
+
+
+def test_headings_hierarchy_components_and_page_continuation():
+    ctx = G.TableContext()
+    t1, t2 = quote_table([pf.QUOTE_HEADER] + pf.QUOTE_PAGE1, 1, "T1"), quote_table([pf.QUOTE_HEADER] + pf.QUOTE_PAGE2, 2, "T2")
+    c1 = G.candidates_from_table(t1, "drw", ctx, G.table_body(t2))
+    c2 = G.candidates_from_table(t2, "drw", ctx)
+    items = c1 + c2
+    descs = [c.description for c in items]
+    # B3: group headings, the sub-header and the total row are structure, not items
+    assert not any(d in descs for d in ("An toàn giao thông", "Biển báo", "Tôn lượn sóng", "Cộng sau thuế:")) and "" not in descs
+    assert not any(d.startswith("Dòng ") for d in descs)
+    # B4: hierarchy, including a group (3.2) that continues on page 2
+    by = {(c.page_no, c.description, c.inputs["quantity"]["value"]): c for c in items}
+    assert [g["code"] for g in by[(1, "Biển tròn D1.2m", "3.00")].group_path] == ["I", "1"]
+    assert [g["code"] for g in by[(2, "Bu lông D16x30mm", "3840.00")].group_path] == ["I", "3", "3.2"]
+    # components of a priced assembly are flagged (info), siblings in an unpriced group are not
+    comp = by[(1, "Bu lông D20x180mm", "1200.00")]
+    assert any(f.code == "component_of_parent" and f.severity == "info" for f in comp.flags)
+    assert not any(f.code == "component_of_parent" for f in by[(1, "Bu lông D20x180mm", "320.00")].flags)
+    assert [g["code"] for g in by[(1, "Tôn sóng làm mới loại B-1", "1204.00")].group_path] == ["I", "3", "3.1"]
+    # a coded row without quantity and without children is a MISSING-DATA item, not a silent heading
+    leaf = next(c for c in items if c.description == "Hạng mục chưa có khối lượng")
+    assert {"quantity_missing", "unit_missing"} <= {f.code for f in leaf.flags}
+    # B13 categories by work package (deepest heading first)
+    cat = {c.description: c.category for c in items}
+    assert cat["Biển tròn D1.2m"] == "traffic_sign" and cat["Cột biển báo loại 1.3, cột D88.3, dày 2.9mm, L=6.100mm"] == "sign_post"
+    assert cat["Bu lông D20x180mm"] == "guardrail" and cat["Bulong M16x35"] == "fence" and cat["Đinh phản quang- 3M"] == "safety_device"
+
+
+def test_doubtful_values_in_descriptions_are_warned_not_blocked():
+    ctx = G.TableContext()
+    items = G.candidates_from_table(quote_table([pf.QUOTE_HEADER] + pf.QUOTE_PAGE1), "drw", ctx) + \
+        G.candidates_from_table(quote_table([pf.QUOTE_HEADER] + pf.QUOTE_PAGE2, 2), "drw", ctx)
+    post = next(c for c in items if "L=6.100mm" in c.description)
+    fence_post = next(c for c in items if "L=1,89mm" in c.description)
+    for c in (post, fence_post):
+        f = next(f for f in c.flags if f.code == "description_value_unconfirmed")
+        assert f.severity == "warning"
+    assert post.inputs["quantity"]["value"] == "2.00"  # the count itself is unaffected

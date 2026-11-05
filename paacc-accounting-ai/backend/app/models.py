@@ -286,6 +286,7 @@ class BoqItem(Base):
     source_item_ids: Mapped[list | None] = mapped_column(JSON)
     mark: Mapped[str | None] = mapped_column(String(32))
     section_key: Mapped[str | None] = mapped_column(String(64))
+    group_path: Mapped[list | None] = mapped_column(JSON)  # source hierarchy, e.g. [{"code": "4", "title": "..."}, {"code": "4.1", ...}]
     version: Mapped[int] = mapped_column(default=1)
     updated_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
 

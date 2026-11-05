@@ -22,7 +22,9 @@ def norm(s):
 
 
 def find(boq, prefix):
-    return next(i for i in boq["items"] if norm(i["description"]).startswith(norm(prefix)))
+    """Annotation-derived (computed) item first; schedule rows with the same text are separate items."""
+    hits = [i for i in boq["items"] if norm(i["description"]).startswith(norm(prefix))]
+    return next((i for i in hits if i["module"]), hits[0])
 
 
 def test_generate_draft_boq_from_drawing_with_confirmed_units(env, a):
@@ -47,8 +49,10 @@ def test_generate_draft_boq_from_drawing_with_confirmed_units(env, a):
     assert {(i["quantity"], i["unit"]) for i in stated} == {("4.3200", "m3"), ("180.8600", "kg")}
     dup = next(f for f in beam["flags"] if f["code"] == "possible_duplicate")
     assert "khớp" in dup["message"] and dup["other_id"] in {i["id"] for i in stated}
-    # categories ordered: concrete first
-    assert [i["category"] for i in boq["items"]][:2] == ["concrete", "concrete"]
+    # schedule rows first, in source order (hierarchy preserved); annotation items after them, grouped by category
+    assert [i["module"] for i in boq["items"][:2]] == [None, None] and [i["category"] for i in boq["items"][:2]] == ["concrete", "steel_box"]
+    annot = [i["category"] for i in boq["items"] if i["module"]]
+    assert annot == sorted(annot, key=["concrete", "rebar", "structural_steel", "steel_box", "plate"].index)
     # AI task for the virtual office
     task = next(t for t in env.get(f"{B}/ai-tasks?department=engineering_qs", headers=a).json() if t["agent_key"] == "quantity_surveyor")
     assert task["status"] == "completed" and "6 hạng mục" in task["output_summary"]
@@ -114,3 +118,25 @@ def test_permissions_validation_and_isolation(env, a):
     assert env.get(f"{B}/boqs", headers=b).json() == []
     assert env.patch(f"{B}/boqs/{boq['id']}/rules", json={"decimals": 2}, headers=v).status_code == 403
     assert len(env.get(f"{B}/takeoff/modules", headers=v).json()["modules"]) == 9
+
+
+def test_real_quotation_layout_end_to_end(env, a):
+    """Phase 4.1: synthetic PDF with the structure of the supplied real quotation (vector, ruled table, 2 pages)."""
+    from tests.drawing_helpers import process, upload
+    d = process(env, a, upload(env, a, pf.quotation_pdf())["id"]).json()
+    full = env.get(f"{B}/drawings/{d['id']}", headers=a).json()
+    assert all(p["scale_candidates"] == [] and p["scale_status"] == "not_detected" for p in full["pages"])  # '1/2' footers
+    dims = env.get(f"{B}/drawings/{d['id']}/items?kind=dimension", headers=a).json()
+    assert not any(x["data"]["type"] == "bare_number" for x in dims)  # table quantities are not dimensions (B6)
+    assert not any(x["text"] == "3M" for x in dims)
+    assert {"round", "bolt", "section"} <= {x["data"]["type"] for x in dims}
+    boq = make_boq(env, a, [d["id"]]).json()
+    assert boq["item_count"] == 13 and boq["blocking_count"] == 1  # 12 data rows + the coded row without quantity
+    assert not any(i["module"] for i in boq["items"])  # no phantom concrete/steel items from lines inside the table (B5)
+    first = boq["items"][0]
+    assert first["description"] == "Biển tròn D1.2m" and first["quantity"] == "3.0000" and [g["code"] for g in first["group_path"]] == ["I", "1"]
+    cont = next(i for i in boq["items"] if i["description"] == "Bu lông D16x30mm")
+    assert cont["page_no"] == 2 and [g["code"] for g in cont["group_path"]] == ["I", "3", "3.2"]
+    assert [i["item_no"] for i in boq["items"]] == list(range(1, 14))  # source order kept
+    leaf = boq["items"][-1]
+    assert leaf["description"] == "Hạng mục chưa có khối lượng" and leaf["has_blocking"]

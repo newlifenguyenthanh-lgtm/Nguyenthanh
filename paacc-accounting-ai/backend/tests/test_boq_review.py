@@ -20,7 +20,9 @@ def norm(s):
 
 
 def item(boq, prefix):
-    return next(i for i in boq["items"] if norm(i["description"]).startswith(norm(prefix)))
+    """Annotation-derived (computed) item first; schedule rows with the same text are separate items."""
+    hits = [i for i in boq["items"] if norm(i["description"]).startswith(norm(prefix))]
+    return next((i for i in hits if i["module"]), hits[0])
 
 
 def url(ctx, i=None, tail=""):

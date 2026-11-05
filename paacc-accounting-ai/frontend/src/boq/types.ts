@@ -5,7 +5,7 @@ export interface BoqItem {
   inputs: Record<string, Input>; unit_system: string | null; stated_unit: string | null; waste_factor: string; waste_override: string | null;
   quantity: string | null; unit: string | null; formula_text: string; origin: string; review_status: "pending" | "accepted" | "rejected";
   flags: Flag[]; notes: string; drawing_id: string | null; page_no: number | null; bbox: number[] | null; source_item_ids: string[];
-  version: number; has_blocking: boolean;
+  version: number; has_blocking: boolean; group_path?: { code: string; title: string }[];
 }
 export interface Total { category: string; unit: string | null; accepted: string; all_active: string; items: number }
 export interface Boq {

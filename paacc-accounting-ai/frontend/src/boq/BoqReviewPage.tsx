@@ -104,19 +104,20 @@ export default function BoqReviewPage() {
       <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Lọc hạng mục">
         <option value="all">Tất cả</option><option value="pending">Chờ rà soát</option><option value="accepted">Chấp nhận</option>
         <option value="rejected">Loại bỏ</option><option value="blocking">Còn lỗi chặn</option><option value="flagged">Có cảnh báo</option></select>
-      <div className="scroll"><table className="boq-table"><thead><tr><th>STT</th><th>Danh mục</th><th>Mô tả</th><th>Quy cách</th>
+      <div className="scroll"><table className="boq-table"><thead><tr><th>STT</th><th>Nhóm</th><th>Danh mục</th><th>Mô tả</th><th>Quy cách</th>
         <th>Khối lượng</th><th>ĐVT</th><th>Nguồn gốc</th><th>Cảnh báo</th><th>Rà soát</th></tr></thead>
         <tbody>{items.map((i) => (
           <Fragment key={i.id}>
             <tr className={`clickable ${i.review_status}`} onClick={() => setOpen(open === i.id ? undefined : i.id)} aria-label={`Hạng mục ${i.item_no}`}>
-              <td>{i.item_no}</td><td>{CATEGORY[i.category] ?? i.category}</td><td>{i.description}</td><td>{i.spec}</td>
+              <td>{i.item_no}</td><td title={(i.group_path ?? []).map((g) => `${g.code} ${g.title}`).join(" › ")}>{(i.group_path ?? []).slice(-1)[0]?.code ?? ""}</td>
+              <td>{CATEGORY[i.category] ?? i.category}</td><td>{i.description}</td><td>{i.spec}</td>
               <td className="num">{qty(i.quantity, dec)}</td><td>{unitLabel(i.unit)}</td><td>{ORIGIN[i.origin] ?? i.origin}</td>
               <td>{i.has_blocking ? "⛔ " : ""}{i.flags.filter((f) => f.severity === "warning").length ? `⚠ ${i.flags.filter((f) => f.severity === "warning").length}` : ""}</td>
               <td>{REVIEW[i.review_status]}</td></tr>
-            {open === i.id && <tr><td colSpan={9}>
+            {open === i.id && <tr><td colSpan={10}>
               <ItemEditor boqId={boq.id} item={i} module={i.module ? modules[i.module] : undefined} editable={editable} onChanged={updateItem} /></td></tr>}
           </Fragment>))}
-          {items.length === 0 && <tr><td colSpan={9}>Không có hạng mục</td></tr>}</tbody></table></div>
+          {items.length === 0 && <tr><td colSpan={10}>Không có hạng mục</td></tr>}</tbody></table></div>
     </main>
   );
 }

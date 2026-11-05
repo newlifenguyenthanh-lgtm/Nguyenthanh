@@ -209,7 +209,7 @@ def new_version(db: Session, user: User, boq: Boq, reason: str) -> Boq:
                     spec=i.spec, module=i.module, inputs=i.inputs, unit_system=i.unit_system, stated_unit=i.stated_unit,
                     waste_override=i.waste_override, origin=i.origin, review_status="pending", source_flags=i.source_flags,
                     notes=i.notes, drawing_id=i.drawing_id, page_no=i.page_no, bbox=i.bbox, source_item_ids=i.source_item_ids,
-                    mark=i.mark, section_key=i.section_key, updated_by=user.id)
+                    mark=i.mark, section_key=i.section_key, group_path=i.group_path, updated_by=user.id)
         db.add(c)
         db.flush()
         S.recompute(nb, c)

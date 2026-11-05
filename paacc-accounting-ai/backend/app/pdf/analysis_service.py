@@ -31,8 +31,18 @@ def analyze_drawing(db: Session, d: Drawing, _extraction=None) -> None:
         lines = [A.Line(str(r.id), r.page_no, r.text, (r.x0, r.y0, r.x1, r.y1), r.source, r.confidence)
                  for r in texts if r.page_no == page_no]
         all_lines += lines
+        page_tables = [t for t in tables if t.page_no == page_no]
+        for t in page_tables:  # classify first: bare numbers inside a schedule are quantities, not dimensions
+            t.data = {**(t.data or {}), **A.classify_table((t.data or {}).get("rows", []))}
+        schedule_boxes = [(t.x0, t.y0, t.x1, t.y1) for t in page_tables if t.data.get("table_type") == "material_schedule"]
         for ln in lines:
+            cx, cy = (ln.bbox[0] + ln.bbox[2]) / 2, (ln.bbox[1] + ln.bbox[3]) / 2
+            in_schedule = any(x0 <= cx <= x1 and y0 <= cy <= y1 for x0, y0, x1, y1 in schedule_boxes)
             for f in A.find_dimensions(ln):
+                if in_schedule and f.data.get("type") == "bare_number":
+                    continue
+                if in_schedule:
+                    f.data["in_schedule_table"] = True
                 db.add(_item(d, f))
                 if f.kind == "dimension":
                     all_dims.append(f)
@@ -49,13 +59,10 @@ def analyze_drawing(db: Session, d: Drawing, _extraction=None) -> None:
         page.units_candidates = tb["unit_candidates"]
         page.units_status = A.units_status(tb["unit_candidates"])
         page.scale_ratio, page.units = None, None  # never auto-confirmed
-        page_tables = [t for t in tables if t.page_no == page_no]
         schedule = False
         for t in page_tables:
-            info = A.classify_table((t.data or {}).get("rows", []))
-            t.data = {**(t.data or {}), **info}
-            schedule = schedule or info["table_type"] == "material_schedule"
-            if info["table_type"] == "material_schedule":
+            schedule = schedule or t.data.get("table_type") == "material_schedule"
+            if t.data.get("table_type") == "material_schedule":
                 db.add(_region(d, page_no, (t.x0, t.y0, t.x1, t.y1), "schedule_table", [str(t.id)], 0.8))
         cls = A.classify(page.title, page.drawing_number, " ".join(ln.text for ln in lines), schedule)
         page.disciplines, page.view_types = cls["disciplines"], cls["view_types"]

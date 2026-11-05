@@ -420,25 +420,41 @@ def classify(title: str | None, number: str | None, page_text: str, has_schedule
 
 
 _HEADER_SYNONYMS = {
-    "stt": ["STT", "TT", "NO", "NO."], "description": ["TEN", "TEN CAU KIEN", "MO TA", "DESCRIPTION", "CAU KIEN", "HANG MUC", "ITEM", "NOI DUNG"],
+    "stt": ["STT", "TT", "NO", "NO."], "description": ["TEN", "TEN CAU KIEN", "MO TA", "DESCRIPTION", "CAU KIEN", "HANG MUC", "ITEM", "NOI DUNG",
+                                                       "TEN VAT TU", "TEN HANG", "DIEN GIAI"],
     "spec": ["QUY CACH", "KICH THUOC", "SPEC", "CHUNG LOAI", "VAT LIEU"], "unit": ["DVT", "DON VI", "UNIT", "DON VI TINH"],
-    "quantity": ["SO LUONG", "SL", "KHOI LUONG", "KL", "QTY", "QUANTITY"], "length": ["CHIEU DAI", "DAI", "LENGTH"],
+    "quantity": ["SO LUONG", "SL", "KHOI LUONG", "KL", "QTY", "QUANTITY", "TONG KHOI LUONG"], "length": ["CHIEU DAI", "DAI", "LENGTH"],
     "weight": ["TRONG LUONG", "WEIGHT", "KG"], "diameter": ["DUONG KINH", "Ø", "PHI"], "mark": ["KY HIEU", "SO HIEU", "MARK"],
+    # recognised so they are never mistaken for quantities; prices are NOT imported into a BOQ
+    "unit_price": ["DON GIA", "UNIT PRICE"], "amount": ["THANH TIEN", "AMOUNT"], "notes": ["GHI CHU", "NOTE", "NOTES"],
 }
+_USEFUL = {"description", "spec", "unit", "quantity", "weight", "length", "diameter"}
 
 
-def classify_table(rows: list[list[str]]) -> dict:
-    if not rows:
-        return {"header_map": {}, "table_type": "unknown"}
-    header_map = {}
-    for i, cell in enumerate(rows[0]):
-        F = re.sub(r"\s+", " ", re.sub(r"\(.*?\)", "", fold(cell))).strip(" .:")
-        for canon, syns in _HEADER_SYNONYMS.items():
-            if F in syns and canon not in header_map.values():
-                header_map[str(i)] = canon
-                break
-    useful = set(header_map.values()) & {"description", "spec", "unit", "quantity", "weight", "length", "diameter"}
-    return {"header_map": header_map, "table_type": "material_schedule" if len(useful) >= 2 else "unknown"}
+def _header_name(cell: str) -> str | None:
+    F = re.sub(r"\s+", " ", re.sub(r"\(.*?\)", "", fold(cell or ""))).strip(" .:")
+    for canon, syns in _HEADER_SYNONYMS.items():
+        if F in syns:
+            return canon
+    # combined headers, e.g. "Chủng loại, quy cách" -> a description column (type + specification text)
+    parts = [x.strip(" .:") for x in re.split(r"[,/&;]|\bVA\b", F) if x.strip(" .:")]
+    found = [c for part in parts for c, syns in _HEADER_SYNONYMS.items() if part in syns]
+    if len(parts) > 1 and found:
+        return "description" if {"spec", "description"} & set(found) else found[0]
+    return None
+
+
+def classify_table(rows: list[list[str]], max_header_row: int = 6) -> dict:
+    """Finds the header row (text printed above a table often lands in the first rows) and maps its columns."""
+    for h, row in enumerate(rows[:max_header_row]):
+        header_map: dict[str, str] = {}
+        for i, cell in enumerate(row):
+            name = _header_name(cell)
+            if name and name not in header_map.values():
+                header_map[str(i)] = name
+        if len(set(header_map.values()) & _USEFUL) >= 2:
+            return {"header_map": header_map, "header_row": h, "table_type": "material_schedule"}
+    return {"header_map": {}, "header_row": None, "table_type": "unknown"}
 
 
 def notes_regions(lines: list[Line]) -> list[dict]:

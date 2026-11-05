@@ -19,7 +19,9 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 UNIT_LABEL = {"m3": "m³", "m2": "m²", "kg": "kg", "m": "m", "cái": "cái", "tấn": "tấn", "bộ": "bộ", "tấm": "tấm", "thanh": "thanh"}
 CATEGORY_VI = {"concrete": "Bê tông", "rebar": "Cốt thép", "structural_steel": "Thép hình", "steel_box": "Thép hộp",
-               "plate": "Bản mã / thép tấm", "other": "Khác"}
+               "plate": "Bản mã / thép tấm", "traffic_sign": "Biển báo", "sign_post": "Cột / giá treo biển",
+               "road_marking": "Vạch sơn", "guardrail": "Tôn lượn sóng (hộ lan)", "fence": "Hàng rào",
+               "safety_device": "Thiết bị an toàn khác", "other": "Khác"}
 REVIEW_VI = {"pending": "Chờ rà soát", "accepted": "Chấp nhận", "rejected": "Loại bỏ"}
 ORIGIN_VI = {"extracted": "Trích xuất từ bản vẽ", "ai_inferred": "AI suy luận", "engineer": "Kỹ sư nhập", "mixed": "Hỗn hợp",
              "rule": "Quy tắc đo bóc"}

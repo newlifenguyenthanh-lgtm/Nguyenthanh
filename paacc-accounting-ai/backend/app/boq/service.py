@@ -116,6 +116,7 @@ def item_dict(i: BoqItem) -> dict:
             "excel_expr": i.excel_expr, "calc_inputs": i.calc_inputs or {}, "origin": i.origin, "review_status": i.review_status,
             "flags": i.flags or [], "notes": i.notes, "drawing_id": str(i.drawing_id) if i.drawing_id else None,
             "page_no": i.page_no, "bbox": i.bbox, "source_item_ids": i.source_item_ids or [], "version": i.version,
+            "group_path": i.group_path or [],
             "has_blocking": bool(blocking(i))}
 
 
@@ -139,19 +140,27 @@ def candidates_for_drawing(db: Session, drawing: Drawing) -> list[G.Candidate]:
         if r.source == "analysis" and (r.data or {}).get("from_item_id"):
             derived_by_line.setdefault(r.data["from_item_id"], []).append(as_dict(r))
     pages = _page_ctx(db, drawing)
+    schedules = [r for r in rows if r.kind == "table" and (r.data or {}).get("table_type") == "material_schedule"]
     out: list[G.Candidate] = []
     for r in sorted((r for r in rows if r.kind == "text"), key=lambda r: (r.page_no, r.y0, r.x0)):
         der = derived_by_line.get(str(r.id), [])
-        if not der:
-            continue
+        if not der or inside_any(r.page_no, (r.x0, r.y0, r.x1, r.y1), schedules):
+            continue  # a line inside a schedule table is represented by its table row, never twice
         p = pages.get(r.page_no)
         c = G.candidates_from_line(as_dict(r), der, p.units if p else None, p.units_status if p else "not_analyzed", str(drawing.id))
         if c:
             out.append(c)
-    for r in rows:
-        if r.kind == "table":
-            out += G.candidates_from_table(as_dict(r), str(drawing.id))
+    ctx = G.TableContext()  # hierarchy continues across tables/pages of the same drawing
+    ordered = [as_dict(r) for r in sorted(schedules, key=lambda r: (r.page_no, r.y0))]
+    for n, t in enumerate(ordered):
+        following = [row for nxt in ordered[n + 1:] for row in G.table_body(nxt)]
+        out += G.candidates_from_table(t, str(drawing.id), ctx, following)
     return out
+
+
+def inside_any(page_no: int, bbox, tables) -> bool:
+    cx, cy = (bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2
+    return any(t.page_no == page_no and t.x0 <= cx <= t.x1 and t.y0 <= cy <= t.y1 for t in tables)
 
 
 def generate_boq(db: Session, user: User, title: str, drawings: list[Drawing], project_id, rules: dict) -> Boq:
@@ -166,13 +175,15 @@ def generate_boq(db: Session, user: User, title: str, drawings: list[Drawing], p
         for d in drawings:
             db.add(BoqSource(company_id=user.company_id, boq_id=boq.id, drawing_id=d.id, document_version_id=d.document_version_id))
             cands += candidates_for_drawing(db, d)
-        cands.sort(key=lambda c: (G.CATEGORY_ORDER.index(c.category), c.page_no, c.bbox[1]))
+        # schedule rows keep their source order (hierarchy I / 4 / 4.1); annotation items are grouped by category
+        cands.sort(key=lambda c: (0, 0, c.page_no, c.bbox[1]) if c.group_path else
+                   (1, G.CATEGORY_ORDER.index(c.category), c.page_no, c.bbox[1]))
         for n, c in enumerate(cands, start=1):
             item = BoqItem(company_id=user.company_id, boq_id=boq.id, item_no=n, category=c.category, description=c.description[:1000],
                            spec=c.spec[:500], module=c.module, inputs=c.inputs, unit_system=c.unit_system, stated_unit=c.stated_unit,
                            origin=origin_of(c.inputs), source_flags=[f.as_dict() for f in c.flags], drawing_id=uuid.UUID(c.drawing_id),
                            page_no=c.page_no, bbox=c.bbox, source_item_ids=c.source_item_ids, mark=c.mark, section_key=c.section_key,
-                           updated_by=user.id)
+                           group_path=c.group_path or None, updated_by=user.id)
             db.add(item)
             db.flush()
             recompute(boq, item)

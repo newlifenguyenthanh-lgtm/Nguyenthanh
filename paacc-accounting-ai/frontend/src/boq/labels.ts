@@ -3,7 +3,9 @@ export const BOQ_STATUS_COLOR: Record<string, string> = { draft: "#9aa5b1", subm
 export const REVIEW: Record<string, string> = { pending: "Chờ rà soát", accepted: "Chấp nhận", rejected: "Loại bỏ" };
 export const ORIGIN: Record<string, string> = { extracted: "Trích xuất", ai_inferred: "AI suy luận", engineer: "Kỹ sư nhập", mixed: "Hỗn hợp" };
 export const CATEGORY: Record<string, string> = {
-  concrete: "Bê tông", rebar: "Cốt thép", structural_steel: "Thép hình", steel_box: "Thép hộp", plate: "Bản mã / thép tấm", other: "Khác",
+  concrete: "Bê tông", rebar: "Cốt thép", structural_steel: "Thép hình", steel_box: "Thép hộp", plate: "Bản mã / thép tấm",
+  traffic_sign: "Biển báo", sign_post: "Cột / giá treo biển", road_marking: "Vạch sơn", guardrail: "Tôn lượn sóng (hộ lan)",
+  fence: "Hàng rào", safety_device: "Thiết bị an toàn khác", other: "Khác",
 };
 export const ACTION: Record<string, string> = {
   generated: "Tạo tự động", edited: "Chỉnh sửa", accepted: "Chấp nhận", rejected: "Loại bỏ", review_reset: "Đặt lại rà soát",

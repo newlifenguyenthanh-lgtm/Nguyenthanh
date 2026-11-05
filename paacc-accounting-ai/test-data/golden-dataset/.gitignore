@@ -1,0 +1,10 @@
+# Confidential material NEVER goes to GitHub: real drawings, workbooks, expected values derived from them,
+# manifests and run results. Only this structure, the README and .gitkeep files are versioned.
+drawings/*
+expected/*
+manifests/*
+results/*
+!drawings/.gitkeep
+!expected/.gitkeep
+!manifests/.gitkeep
+!results/.gitkeep

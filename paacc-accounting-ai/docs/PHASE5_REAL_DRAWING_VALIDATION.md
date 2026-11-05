@@ -37,7 +37,7 @@
 | Phát hiện trùng lặp BOQ | R1 | 38 trường hợp | 38/38 (Phase 4.1) | PASS (thật) |
 | Tích hợp BOQ (từ geometry) | – | – | chưa triển khai (5E) | Chưa có |
 | BOQ / Excel không hồi quy khi bật 5A | R1 | 50 dòng; export 2 layout | 50/50; xuất cả 2 layout | **PASS (thật)** |
-| Mã hoá TCVN3/VNI | W4 có text TCVN3 thật | – | 5A.1 | xem §4 |
+| Mã hoá TCVN3/VNI (5A.1, chỉ phát hiện) | W4 + W1–W3, ~31.000 chuỗi | 9 chuỗi TCVN3 trong W4 (soát toàn bộ chuỗi có thể là TCVN3); 0 trong W1–W3 | phát hiện 8/9 (độ phủ), 8/8 đúng (độ chính xác), 0 dương tính giả trên W1–W3; bỏ sót "Ghi chó" (= "Ghi chú", toàn ký tự hợp lệ) | **PASS (thật)** cho phát hiện; chuyển đổi chưa làm |
 
 ## 3. Phát hiện thật trong 5A
 1. **PDF thật không có toán tử `l` (line).** Mọi đường kẻ là hình chữ nhật tô đặc dày 0,12–0,72 pt. Nếu không có quy tắc `filled_hairline_rect`, số hình học trích được bằng 0.
@@ -47,6 +47,11 @@
    - Backlog: cờ "có thể bị che".
    - Khối lượng không được dựa vào phần hình học bị che mà không có xác nhận của kỹ sư.
 5. **Ảnh nhúng** (con dấu, chữ ký, logo) chứa nét giống đường thẳng. Đó là raster, không phải vector, nên không được coi là hình học bản vẽ.
+
+## 3b. Phát hiện thật trong 5A.1
+- Text TCVN3 thật trong workbook khối lượng (ví dụ dạng "VÞ trÝ … vµo"). Ba workbook báo giá là Unicode sạch.
+- **Bỏ sót không tránh được bằng phân tích ký tự:** TCVN3 chỉ dùng chữ trông hợp lệ ("Ghi chó"). Cần ngữ cảnh: cả sheet/cột đã là TCVN3, hoặc kiểm tra từ điển. Đây là backlog, có test ghi nhận hành vi hiện tại.
+- **Không chuyển đổi** cho tới khi có bảng mã TCVN3/VNI được kiểm chứng trên mẫu thật. Văn bản gốc luôn giữ nguyên, kết quả phát hiện nằm ở `data.encoding` và cảnh báo trang.
 
 ## 4. Chiến lược regression với bản vẽ thật
 - Mỗi tài liệu thật mới vào golden dataset với kỳ vọng được kiểm chứng độc lập:

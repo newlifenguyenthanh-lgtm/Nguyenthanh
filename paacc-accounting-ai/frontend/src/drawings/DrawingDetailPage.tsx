@@ -134,7 +134,8 @@ export default function DrawingDetailPage() {
               <tr key={it.id} className={it.id === sel ? "sel" : ""} onClick={() => setSel(it.id)}>
                 <td>{ITEM_KIND[it.kind] ?? it.kind}</td><td>{it.text}</td><td>{describe(it)}</td><td>{pct(it.confidence)}</td>
                 <td>{it.source === "analysis" ? String(it.data.from_source ?? "") : it.source}</td>
-                <td>{(it.data.flags ?? []).map((f) => FLAG_VI[f] ?? f).join(", ")}</td></tr>))}
+                <td>{(it.data.flags ?? []).map((f) => FLAG_VI[f] ?? f).join(", ")}
+                  {it.data.encoding ? ` Nghi mã hoá cũ: ${(it.data.encoding as { encoding: string }).encoding} (giữ nguyên văn bản gốc)` : ""}</td></tr>))}
               {items.length === 0 && <tr><td colSpan={6}>Không có mục nào</td></tr>}</tbody></table></div>
         </div>
       </div>}

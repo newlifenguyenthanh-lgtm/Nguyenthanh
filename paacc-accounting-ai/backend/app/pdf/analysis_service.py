@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Drawing, DrawingPage, ExtractedItem
 from app.pdf import analysis as A
+from app.text.encoding import detect as detect_encoding
 
 
 def _item(d: Drawing, f: A.Finding, kind: str | None = None) -> ExtractedItem:
@@ -28,6 +29,15 @@ def analyze_drawing(db: Session, d: Drawing, _extraction=None) -> None:
     all_lines: list[A.Line] = []
     all_dims: list[A.Finding] = []
     for page_no, page in sorted(pages.items()):
+        legacy = {}
+        for r in texts:  # 5A.1: legacy Vietnamese encodings - detection only, original text untouched
+            if r.page_no == page_no:
+                g = detect_encoding(r.text)
+                if g.suspicious:
+                    r.data = {**(r.data or {}), "encoding": g.as_dict()}
+                    legacy[g.encoding] = legacy.get(g.encoding, 0) + 1
+        if legacy:
+            page.warnings = (page.warnings or []) + [f"legacy_encoding_suspected:{k}:{v}" for k, v in sorted(legacy.items())]
         lines = [A.Line(str(r.id), r.page_no, r.text, (r.x0, r.y0, r.x1, r.y1), r.source, r.confidence)
                  for r in texts if r.page_no == page_no]
         all_lines += lines

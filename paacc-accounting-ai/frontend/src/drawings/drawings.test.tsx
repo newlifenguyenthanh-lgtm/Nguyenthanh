@@ -59,6 +59,15 @@ const compEvidence = { scores: {}, overall: 0.949, band: "HIGH", rule: "FENCE@ca
   measurements: [{ id: "m1", kind: "length", value_real: "20.461", real_unit: "m", value_paper: "580", paper_unit: "pt" }],
   detail: { reasons: [], comparisons: [], conflicts: [], ambiguous: [] }, repeat_group: null,
   relations: [{ from: "c2", to: "c1", type: "PART_OF" }] };
+const qtyRows = [{ id: "q1", component_id: "c1", drawing_id: "d1", page_no: 1, component_type: "STEEL_POST", component_description: "Trụ D88.3",
+  quantity_type: "LENGTH", raw_value: "127.5", quantity_value: "127.5", unit: "m", precision: 3, rounding_rule: "ROUND_HALF_UP",
+  calculation_method: "COUNT_X_LENGTH", rule_code: "STEEL_POST.TOTAL_LENGTH", formula: "COUNT × UNIT_LENGTH",
+  formula_trace: "51 × 2.500 m = 127.500 m", input_measurement_ids: ["m1"], status: "CALCULATED", reason: "", version: 1,
+  parameters: { unit_length: { value: "2.5", unit: "m", source_type: "ENGINEER_INPUT", source_reference: "Chi tiết A-03", entered_by: "qs@a.test" } } },
+  { id: "q2", component_id: "c2", drawing_id: "d1", page_no: 1, component_type: "FENCE_POST", component_description: "",
+  quantity_type: "COUNT", raw_value: null, quantity_value: null, unit: "ea", precision: 0, rounding_rule: "ROUND_HALF_UP",
+  calculation_method: "COUNT_REFERENCE", rule_code: "FENCE_POST.COUNT", formula: "COUNT", formula_trace: "", input_measurement_ids: ["m9"],
+  status: "REQUIRES_REVIEW", reason: "Dãy lặp OCCLUDED", version: 1, parameters: {} }];
 let calls: { url: string; method: string; body?: string }[];
 beforeEach(() => {
   calls = [];
@@ -84,6 +93,14 @@ beforeEach(() => {
     if (url === "/components/c1/reclassify") return json(comp({ component_type: "GUARDRAIL", status: "REVIEW_REQUIRED" }));
     if (url === "/component-types") return json([{ code: "FENCE", group: "ATGT", name_vi: "Hàng rào", active: true },
       { code: "GUARDRAIL", group: "ATGT", name_vi: "Hộ lan", active: true }]);
+    if (url === "/drawings/d1/quantity-results") return json(qtyRows);
+    if (url === "/drawings/d1/quantities/run") return json({ components_scanned: 6, not_confirmed: 1, representations_skipped: 0,
+      rules_matched: 6, calculated: 6, requires_review: 0, blocked: 0, skipped_missing_parameter: 0, skipped_missing_measurement: 4 });
+    if (url === "/quantity-results/q1") return json({ ...qtyRows[0], provenance: {
+      component: { id: "c1", type: "STEEL_POST", status: "CONFIRMED", description: "Trụ D88.3", specification: "D88.3" },
+      measurements: [{ id: "m1", kind: "count", value_real: "51", real_unit: "count", status: "confirmed", geometry_ids: ["g1"] }],
+      geometry_ids: ["g1"], texts: [{ id: "t1", original_text: "D88.3" }], association_ids: ["a1"], drawing: { page_no: 1 },
+      audit: [{ action: "quantity_run", user: "qs@a.test", at: "2026-11-05T00:00:00Z" }] } });
     if (url === "/drawings/d1/pages/1/text-blocks") return json(blocks);
     if (url === "/drawings/d1/pages/1/associations") return json(associations);
     if (url === "/associations/a1/reject") return JSON.parse(init!.body as string).note ? json(assoc({ status: "REJECTED" }))
@@ -259,6 +276,28 @@ describe("component recognition layer (Phase 5D)", () => {
     fireEvent.click(screen.getByLabelText("Xung đột"));
     await waitFor(() => expect(container.querySelectorAll("[data-comp]").length).toBe(1));
     expect(container.querySelector('[data-comp="c9"]')).toBeTruthy();
+  });
+});
+
+describe("quantity panel (Phase 5E-2)", () => {
+  it("runs the deterministic rules and shows formula, status and provenance", async () => {
+    const { container } = render(<MemoryRouter initialEntries={["/drawings/d1"]}><Routes><Route path="/drawings/:id" element={<DrawingDetailPage />} /></Routes></MemoryRouter>);
+    await screen.findByText(/KC-01 – Rev A/);
+    const panel = await screen.findByLabelText("Khối lượng");
+    expect(await within(panel).findByText("51 × 2.500 m = 127.500 m")).toBeTruthy();
+    expect(within(panel).getByText("Cần kiểm tra")).toBeTruthy();
+    expect(container.querySelector('[data-qty="q2"]')!.textContent).toContain("—");  // no value when review is required
+    fireEvent.click(within(panel).getByText("Tính khối lượng"));
+    expect(await within(panel).findByText(/khớp 6 quy tắc · tính được 6/)).toBeTruthy();
+    expect(calls.find((c) => c.url === "/drawings/d1/quantities/run")!.method).toBe("POST");
+    fireEvent.click(container.querySelector('[data-qty="q1"]')!);
+    const det = await within(panel).findByLabelText("Chi tiết khối lượng");
+    expect(within(det).getByText(/count = 51 count \(confirmed\)/)).toBeTruthy();
+    expect(within(det).getByText(/unit_length = 2.5 m \[ENGINEER_INPUT: Chi tiết A-03, qs@a.test\]/)).toBeTruthy();
+    expect(within(det).getByText(/Chữ: D88.3/)).toBeTruthy();
+    expect(within(det).getByText(/Audit: quantity_run/)).toBeTruthy();
+    fireEvent.click(within(det).getByText("↗ Xem nguồn trên bản vẽ"));
+    await waitFor(() => expect(container.querySelector('[data-geo="g1"]')!.getAttribute("stroke")).toBe("#e8590c"));
   });
 });
 

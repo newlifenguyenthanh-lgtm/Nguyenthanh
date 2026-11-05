@@ -214,3 +214,29 @@ def test_quantity_results_on_postgres(pg, monkeypatch):
     other = login(client, "admin@pgb.test", "pw-admin-2")
     assert client.get(f"{B}/quantity-results/{r2['id']}", headers=other).status_code == 404
     assert client.post(f"{B}/quantity-results/{r2['id']}/review", json={"decision": "confirm"}, headers=a).json()["status"] == "CONFIRMED"
+
+
+def test_quantity_rules_runner_on_postgres(pg, monkeypatch):
+    from tests import component_helpers as H
+    use_ocr(monkeypatch, FakeOcr())
+    client, _ = pg
+    a = login(client, "admin@pga.test", "pw-admin-1")
+    d = process(client, a, upload(client, a, H.sheet_fence())["id"]).json()
+    client.post(f"{B}/drawings/{d['id']}/pages/1/calibration", json={"scale_ratio": 100}, headers=a)
+    client.post(f"{B}/drawings/{d['id']}/components/run", headers=a)
+    cs = client.get(f"{B}/drawings/{d['id']}/components", headers=a).json()
+    for c in cs:
+        if c["status"] == "CANDIDATE":
+            client.post(f"{B}/components/{c['id']}/review", json={}, headers=a)
+        client.post(f"{B}/components/{c['id']}/confirm", json={}, headers=a)
+        for m in c["source_measurement_ids"]:
+            client.post(f"{B}/measurements/{m}/confirm", json={"note": "ok"}, headers=a)
+    post = next(c for c in cs if c["component_type"] == "FENCE_POST")
+    s = client.post(f"{B}/drawings/{d['id']}/quantities/run", json={"parameters": {post["id"]: {"unit_length": {
+        "value": "2.5", "unit": "m", "source_type": "PROJECT_STANDARD", "source_reference": "ST-001"}}}}, headers=a).json()
+    assert s["calculated"] == 3 and s["requires_review"] == 0
+    rows = {r["rule_code"]: r for r in client.get(f"{B}/drawings/{d['id']}/quantity-results", headers=a).json()}
+    assert rows["FENCE_POST.TOTAL_LENGTH"]["formula_trace"] == "10 × 2.500 m = 25.000 m"
+    assert rows["FENCE.LENGTH"]["quantity_value"] == "20.461" and rows["FENCE_POST.COUNT"]["quantity_value"] == "10"
+    other = login(client, "admin@pgb.test", "pw-admin-2")
+    assert client.get(f"{B}/drawings/{d['id']}/quantity-results", headers=other).status_code == 404

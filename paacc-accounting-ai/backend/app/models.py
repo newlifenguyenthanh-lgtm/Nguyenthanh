@@ -623,7 +623,9 @@ class QuantityResult(Base):
     precision: Mapped[int] = mapped_column(default=3)
     rounding_rule: Mapped[str] = mapped_column(String(24), default="ROUND_HALF_UP")
     calculation_method: Mapped[str] = mapped_column(String(32))
+    rule_code: Mapped[str | None] = mapped_column(String(64), index=True)  # 5E-2 rule registry entry (None = direct 5E-1 method)
     formula: Mapped[str] = mapped_column(String(500), default="")
+    formula_trace: Mapped[str] = mapped_column(String(1000), default="", server_default="")  # e.g. "51 × 2.500 m = 127.500 m"
     parameters: Mapped[dict | None] = mapped_column(JSON)  # engineer-stated inputs WITH source (unit length / unit weight …)
     source_component: Mapped[dict] = mapped_column(JSON)  # snapshot at calculation time (type, status, spec)
     source_measurement: Mapped[list] = mapped_column(JSON)  # snapshot of each input measurement (kind, value, unit, status)

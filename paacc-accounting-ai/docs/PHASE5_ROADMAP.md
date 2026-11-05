@@ -5,7 +5,8 @@
 - 5B: xong
 - 5C: xong, còn chờ kiểm chứng trên bản vẽ thi công thật
 - 5D: xong, còn chờ kiểm chứng trên bản vẽ thi công thật
-- 5E-1 (nền tảng Quantity Engine): xong (xem PHASE5E_QUANTITY_FOUNDATION.md); 5E-2 chưa bắt đầu (chờ review)
+- 5E-1 (nền tảng Quantity Engine): xong (xem PHASE5E_QUANTITY_FOUNDATION.md)
+- 5E-2 (quy tắc khối lượng tất định + demo chạy được): xong (xem PHASE5E2_QUANTITY_RULES.md); 5F chưa bắt đầu (chờ review)
 
 | Milestone | Nội dung | Trạng thái | Phụ thuộc dữ liệu thật |
 |---|---|---|---|
@@ -15,8 +16,9 @@
 | **5C** Association + lý trình | khối chữ (`drawing_text_blocks`, giữ chữ gốc) + phân loại rule-based; liên kết chữ ↔ hình học (lưới không gian, khoảng cách/hướng/chiếu/ngữ nghĩa, xếp hạng); `AMBIGUOUS` khi điểm thấp hoặc 2 ứng viên sát nhau; `CONFLICT` khi chữ ≠ hình học đo trên tỷ lệ đã xác nhận; khoảng lý trình chỉ khi đúng 2 lý trình gắn cùng một hình học; review + lịch sử đổi hình học; lớp phủ UI | **Xong** (xem PHASE5C_TEXT_GEOMETRY_ASSOCIATION.md). **Chưa kiểm chứng trên bản vẽ thi công thật.** Còn lại: đường gióng, trái/phải tuyến, liên kết chéo trang | W4 (lý trình) + bản vẽ tuyến |
 | **5D** Nhận dạng cấu kiện | taxonomy mở rộng (dữ liệu, 37 loại), mẫu ký hiệu, 10 quan hệ không gian, dãy lặp (đều / không đều / bị che, không nội suy), gộp biểu diễn trùng, mặt bằng↔chi tiết (`REPRESENTATION_OF` / `DETAILED_IN` / `REFERENCES`), 7 điểm bằng chứng riêng, state machine + review + audit, bàn giao 5E ở dạng nháp (tham chiếu phép đo), AI task + chỉ số văn phòng, lớp UI [Cấu kiện] | **Xong** (xem PHASE5D_COMPONENT_RECOGNITION.md). **Chưa kiểm chứng trên bản vẽ thi công thật (chưa có dữ liệu).** | cần bản vẽ ATGT/hạ tầng |
 | **5E-1** Nền tảng Quantity Engine | `quantity_results` có phiên bản; bảng đơn vị duy nhất; Decimal + làm tròn tường minh một lần; 7 phương pháp (tham chiếu phép đo 5B, COUNT_X_LENGTH, LENGTH_X_UNIT_WEIGHT); chỉ cấu kiện CONFIRMED; phép đo chưa xác nhận → REQUIRES_REVIEW/BLOCKED; provenance; review + audit | **Xong** | – |
-| 5E-2+ Geometry → BOQ (**chưa bắt đầu, chờ review 5E-1**) | ứng viên khối lượng từ phép đo đã xác nhận → `generate.py` (nguồn "geometry"), provenance đầy đủ, trùng lặp mặt bằng/chi tiết, xuất Excel 2 layout | Kế hoạch | đối chiếu W4 |
-| 5F Scan / CV | vector hoá raster, dò ký hiệu bằng ML, chỉ khi có dữ liệu huấn luyện có nhãn | Kế hoạch (dài hạn) | bộ dữ liệu có nhãn |
+| **5E-2** Quy tắc khối lượng | registry quy tắc (dữ liệu, kiểm tra theo phương pháp 5E-1); COUNT / LENGTH / AREA / COUNT × UNIT_LENGTH / LENGTH × UNIT_WEIGHT; tham số bắt buộc có nguồn; diễn giải công thức từ Decimal; chống trùng (biểu diễn, cùng phép đo); chạy cả bản vẽ; khu "Khối lượng" trên UI; demo `python -m app.quantity.demo [--pipeline]` | **Xong** | – |
+| 5F Geometry → BOQ (**chưa bắt đầu, chờ review 5E-2**) | ứng viên khối lượng từ phép đo đã xác nhận → `generate.py` (nguồn "geometry"), provenance đầy đủ, trùng lặp mặt bằng/chi tiết, xuất Excel 2 layout | Kế hoạch | đối chiếu W4 |
+| 5G Scan / CV (trước đây ghi 5F) | vector hoá raster, dò ký hiệu bằng ML, chỉ khi có dữ liệu huấn luyện có nhãn | Kế hoạch (dài hạn) | bộ dữ liệu có nhãn |
 
 ## Phân tầng nhận dạng cấu kiện (5D)
 

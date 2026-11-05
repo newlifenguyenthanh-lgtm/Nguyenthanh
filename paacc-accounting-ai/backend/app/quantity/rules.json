@@ -1,0 +1,253 @@
+{
+ "version": 1,
+ "note": "Starter quantity rule catalog (DATA). Not the final BOQ rule library. A rule only runs when its required 5B measurements exist on the component and its parameters are supplied with a source.",
+ "rules": [
+  {
+   "rule_code": "STEEL_POST.COUNT",
+   "component_type": "STEEL_POST",
+   "quantity_type": "COUNT",
+   "method": "COUNT_REFERENCE",
+   "required_measurements": [
+    "count"
+   ],
+   "required_parameters": [],
+   "formula": "COUNT",
+   "output_unit": "ea",
+   "validation": {
+    "integer": true,
+    "positive": true
+   },
+   "auto": true,
+   "note": ""
+  },
+  {
+   "rule_code": "STEEL_POST.TOTAL_LENGTH",
+   "component_type": "STEEL_POST",
+   "quantity_type": "LENGTH",
+   "method": "COUNT_X_LENGTH",
+   "required_measurements": [
+    "count"
+   ],
+   "required_parameters": [
+    "unit_length"
+   ],
+   "formula": "COUNT × UNIT_LENGTH",
+   "output_unit": "m",
+   "validation": {
+    "positive": true
+   },
+   "auto": true,
+   "note": "Tổng chiều dài thép trụ = số trụ × chiều dài 1 trụ (chiều dài trụ, KHÔNG phải bước trụ)."
+  },
+  {
+   "rule_code": "STEEL_POST.WEIGHT",
+   "component_type": "STEEL_POST",
+   "quantity_type": "WEIGHT",
+   "method": "LENGTH_X_UNIT_WEIGHT",
+   "required_measurements": [
+    "length"
+   ],
+   "required_parameters": [
+    "unit_weight"
+   ],
+   "formula": "LENGTH × UNIT_WEIGHT",
+   "output_unit": "kg",
+   "validation": {
+    "positive": true
+   },
+   "auto": true,
+   "note": ""
+  },
+  {
+   "rule_code": "FENCE_POST.COUNT",
+   "component_type": "FENCE_POST",
+   "quantity_type": "COUNT",
+   "method": "COUNT_REFERENCE",
+   "required_measurements": [
+    "count"
+   ],
+   "required_parameters": [],
+   "formula": "COUNT",
+   "output_unit": "ea",
+   "validation": {
+    "integer": true,
+    "positive": true
+   },
+   "auto": true,
+   "note": ""
+  },
+  {
+   "rule_code": "FENCE_POST.TOTAL_LENGTH",
+   "component_type": "FENCE_POST",
+   "quantity_type": "LENGTH",
+   "method": "COUNT_X_LENGTH",
+   "required_measurements": [
+    "count"
+   ],
+   "required_parameters": [
+    "unit_length"
+   ],
+   "formula": "COUNT × UNIT_LENGTH",
+   "output_unit": "m",
+   "validation": {
+    "positive": true
+   },
+   "auto": true,
+   "note": ""
+  },
+  {
+   "rule_code": "BOLT.COUNT",
+   "component_type": "BOLT",
+   "quantity_type": "COUNT",
+   "method": "COUNT_REFERENCE",
+   "required_measurements": [
+    "count"
+   ],
+   "required_parameters": [],
+   "formula": "COUNT",
+   "output_unit": "ea",
+   "validation": {
+    "integer": true,
+    "positive": true
+   },
+   "auto": true,
+   "note": ""
+  },
+  {
+   "rule_code": "CORRUGATED_SHEET.AREA",
+   "component_type": "CORRUGATED_SHEET",
+   "quantity_type": "AREA",
+   "method": "AREA_REFERENCE",
+   "required_measurements": [
+    "area"
+   ],
+   "required_parameters": [],
+   "formula": "AREA",
+   "output_unit": "m2",
+   "validation": {
+    "positive": true
+   },
+   "auto": true,
+   "note": ""
+  },
+  {
+   "rule_code": "CORRUGATED_SHEET.LENGTH",
+   "component_type": "CORRUGATED_SHEET",
+   "quantity_type": "LENGTH",
+   "method": "MEASUREMENT_REFERENCE",
+   "required_measurements": [
+    "length"
+   ],
+   "required_parameters": [],
+   "formula": "LENGTH",
+   "output_unit": "m",
+   "validation": {
+    "positive": true
+   },
+   "auto": true,
+   "note": ""
+  },
+  {
+   "rule_code": "GUARDRAIL.LENGTH",
+   "component_type": "GUARDRAIL",
+   "quantity_type": "LENGTH",
+   "method": "MEASUREMENT_REFERENCE",
+   "required_measurements": [
+    "length"
+   ],
+   "required_parameters": [],
+   "formula": "LENGTH",
+   "output_unit": "m",
+   "validation": {
+    "positive": true
+   },
+   "auto": true,
+   "note": ""
+  },
+  {
+   "rule_code": "NOISE_BARRIER.AREA",
+   "component_type": "NOISE_BARRIER",
+   "quantity_type": "AREA",
+   "method": "AREA_REFERENCE",
+   "required_measurements": [
+    "area"
+   ],
+   "required_parameters": [],
+   "formula": "AREA",
+   "output_unit": "m2",
+   "validation": {
+    "positive": true
+   },
+   "auto": true,
+   "note": ""
+  },
+  {
+   "rule_code": "NOISE_BARRIER.LENGTH",
+   "component_type": "NOISE_BARRIER",
+   "quantity_type": "LENGTH",
+   "method": "MEASUREMENT_REFERENCE",
+   "required_measurements": [
+    "length"
+   ],
+   "required_parameters": [],
+   "formula": "LENGTH",
+   "output_unit": "m",
+   "validation": {
+    "positive": true
+   },
+   "auto": true,
+   "note": ""
+  },
+  {
+   "rule_code": "LINEAR_COMPONENT.LENGTH",
+   "component_type": "LINEAR_COMPONENT",
+   "quantity_type": "LENGTH",
+   "method": "MEASUREMENT_REFERENCE",
+   "required_measurements": [
+    "length"
+   ],
+   "required_parameters": [],
+   "formula": "LENGTH",
+   "output_unit": "m",
+   "validation": {
+    "positive": true
+   },
+   "auto": true,
+   "note": ""
+  },
+  {
+   "rule_code": "FENCE.LENGTH",
+   "component_type": "FENCE",
+   "quantity_type": "LENGTH",
+   "method": "MEASUREMENT_REFERENCE",
+   "required_measurements": [
+    "length"
+   ],
+   "required_parameters": [],
+   "formula": "LENGTH",
+   "output_unit": "m",
+   "validation": {
+    "positive": true
+   },
+   "auto": true,
+   "note": ""
+  },
+  {
+   "rule_code": "FENCE_POST.SPACING",
+   "component_type": "FENCE_POST",
+   "quantity_type": "SPACING",
+   "method": "SPACING_REFERENCE",
+   "required_measurements": [
+    "spacing"
+   ],
+   "required_parameters": [],
+   "formula": "SPACING",
+   "output_unit": "m",
+   "validation": {
+    "positive": true
+   },
+   "auto": false,
+   "note": "Bước trụ là thông tin kiểm tra, không phải tổng chiều dài; không tự chạy."
+  }
+ ]
+}

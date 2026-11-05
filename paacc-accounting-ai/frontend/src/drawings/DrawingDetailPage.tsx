@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { api, errorText } from "../api";
 import AssociationPanel from "./AssociationPanel";
 import ComponentPanel from "./ComponentPanel";
+import QuantityPanel from "./QuantityPanel";
 import GeometryPanel from "./GeometryPanel";
 import PageViewer, { KIND_COLOR, type Link as AssocLink, type Tag } from "./PageViewer";
 import { ASSOC_COLOR, CAL_STATUS, COMP_COLOR, DISCIPLINE, FINDING_VI, FLAG_VI, ITEM_KIND, PAGE_KIND, REL_VI, STATUS_VI, VIEW, pct } from "./labels";
@@ -226,6 +227,9 @@ export default function DrawingDetailPage() {
               {items.length === 0 && <tr><td colSpan={6}>Không có mục nào</td></tr>}</tbody></table></div>
         </div>
       </div>}
+      {d.status === "processed" && <QuantityPanel drawingId={d.id} onShowSource={(pn, ids) => {
+        setPageNo(pn); setSrcGeo(ids); setLayers((ls) => (ls.includes("components") ? ls : [...ls, "components"]));
+      }} />}
     </main>
   );
 }

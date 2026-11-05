@@ -60,3 +60,19 @@ export interface ComponentEvidence {
   relations: { from: string; to: string; type: string }[];
 }
 export interface ComponentTypeDef { code: string; group: string; name_vi: string; active: boolean }
+export interface QuantityResult {
+  id: string; component_id: string; drawing_id: string; page_no?: number; component_type?: string; component_description?: string;
+  quantity_type: string; raw_value: string | null; quantity_value: string | null; unit: string; precision: number; rounding_rule: string;
+  calculation_method: string; rule_code: string | null; formula: string; formula_trace: string; parameters: Record<string, Record<string, string>>;
+  input_measurement_ids: string[]; status: string; reason: string; version: number;
+  provenance?: {
+    component: { id: string; type: string; status: string; description: string; specification: string };
+    measurements: { id: string; kind: string; value_real: string | null; real_unit: string | null; status: string; geometry_ids: string[] }[];
+    geometry_ids: string[]; texts: { id: string; original_text: string }[]; association_ids: string[];
+    drawing: { page_no: number }; audit: { action: string; user: string | null; at: string | null }[];
+  };
+}
+export interface QuantityRunSummary {
+  components_scanned: number; not_confirmed: number; representations_skipped: number; rules_matched: number; calculated: number;
+  requires_review: number; blocked: number; skipped_missing_parameter: number; skipped_missing_measurement: number;
+}

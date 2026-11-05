@@ -73,7 +73,7 @@ def test_6_explicit_rounding_only_on_the_final_value():
 
 def test_derived_count_x_length_and_unit_weight_foundation():
     c = E.calculate("COUNT_X_LENGTH", [M("count", "51", "count")], {"unit_length": {"value": "2.5", "unit": "m", "source": "chi tiết A"}})
-    assert c.value == D("127.500") and c.input_measurement_ids == ["m-count"] and c.parameters["unit_length"]["source"] == "chi tiết A"
+    assert c.value == D("127.500") and c.input_measurement_ids == ["m-count"] and c.parameters["unit_length"]["source_reference"] == "chi tiết A"
     missing = E.calculate("LENGTH_X_UNIT_WEIGHT", [M("length", "100", "m")])
     assert missing.status == "REQUIRES_REVIEW" and missing.value is None and "không tự đoán" in missing.reasons[0]
     unsourced = E.calculate("LENGTH_X_UNIT_WEIGHT", [M("length", "100", "m")], {"unit_weight": {"value": "3.95", "unit": "kg/m"}})
@@ -183,7 +183,7 @@ def test_api_flow_reference_versioning_provenance_review(env, fence):
                        json={"method": "COUNT_X_LENGTH", "parameters": {"unit_length": {"value": "2.5", "unit": "m", "source": "chi tiết trụ"}}},
                        headers=a).json()
     assert derived["quantity_value"] == "25" and derived["input_measurement_ids"] == [cnt["measurement_id"]]
-    assert derived["parameters"]["unit_length"]["source"] == "chi tiết trụ"
+    assert derived["parameters"]["unit_length"]["source_reference"] == "chi tiết trụ"
 
 
 def test_rejected_measurement_blocks(env, fence):

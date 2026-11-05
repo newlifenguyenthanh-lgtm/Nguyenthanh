@@ -1,10 +1,19 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api";
+import AssociationPanel from "./AssociationPanel";
 import GeometryPanel from "./GeometryPanel";
-import PageViewer, { KIND_COLOR } from "./PageViewer";
-import { CAL_STATUS, DISCIPLINE, FINDING_VI, FLAG_VI, ITEM_KIND, PAGE_KIND, REL_VI, STATUS_VI, VIEW, pct } from "./labels";
-import type { DrawingDetail, Finding, GeometryPrim, Item, Page } from "./types";
+import PageViewer, { KIND_COLOR, type Link as AssocLink, type Tag } from "./PageViewer";
+import { ASSOC_COLOR, CAL_STATUS, DISCIPLINE, FINDING_VI, FLAG_VI, ITEM_KIND, PAGE_KIND, REL_VI, STATUS_VI, VIEW, pct } from "./labels";
+import type { Association, DrawingDetail, Finding, GeometryPrim, Item, Page, TextBlock } from "./types";
+
+type Layer = "text" | "links" | "measures" | "conflicts";
+const LAYERS: [Layer, string][] = [["text", "Chữ"], ["links", "Liên kết"], ["measures", "Phép đo"], ["conflicts", "Xung đột"]];
+
+function centre(g: GeometryPrim): [number, number] {
+  const [x0, y0, x1, y1] = g.bbox;
+  return [(x0 + x1) / 2, (y0 + y1) / 2];
+}
 
 const DEFAULT_KINDS = ["dimension", "count", "spec", "symbol", "reference", "region"];
 
@@ -82,6 +91,13 @@ export default function DrawingDetailPage() {
   const [showGeo, setShowGeo] = useState(false);
   const [geo, setGeo] = useState<GeometryPrim[]>([]);
   const [selGeo, setSelGeo] = useState<string>();
+  // Phase 5C overlay
+  const [layers, setLayers] = useState<Layer[]>([]);
+  const [blocks, setBlocks] = useState<TextBlock[]>([]);
+  const [assocs, setAssocs] = useState<Association[]>([]);
+  const [selText, setSelText] = useState<string>();
+  const [picking, setPicking] = useState<{ id: string; reason: string }>();
+  const need5c = layers.length > 0;
   const load = useCallback(() => api<DrawingDetail>(`/drawings/${id}`).then(setD).catch((e) => setErr(errorText(e))), [id]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -89,12 +105,59 @@ export default function DrawingDetailPage() {
     api<Item[]>(`/drawings/${id}/items?page=${pageNo}&kind=${kinds.join(",")}&limit=2000`).then(setItems).catch((e) => setErr(errorText(e)));
   }, [d, id, pageNo, kinds]);
   useEffect(() => {
-    if (!showGeo || !d) { setGeo([]); return; }
+    if (!need5c || !d) { setBlocks([]); setAssocs([]); return; }
+    api<TextBlock[]>(`/drawings/${id}/pages/${pageNo}/text-blocks`).then(setBlocks).catch((e) => setErr(errorText(e)));
+    api<Association[]>(`/drawings/${id}/pages/${pageNo}/associations`).then(setAssocs).catch((e) => setErr(errorText(e)));
+  }, [need5c, d, id, pageNo]);
+  const needGeo = showGeo || layers.length > 0;
+  useEffect(() => {
+    if (!needGeo || !d) { setGeo([]); return; }
     api<GeometryPrim[]>(`/drawings/${id}/geometry?page=${pageNo}&limit=20000`).then(setGeo).catch((e) => setErr(errorText(e)));
-  }, [showGeo, d, id, pageNo]);
+  }, [needGeo, d, id, pageNo]);
   const page = useMemo(() => d?.pages.find((p) => p.page_no === pageNo), [d, pageNo]);
+  const overlay = useMemo(() => {
+    const geoById = new Map(geo.map((g) => [g.id, g]));
+    const blockById = new Map(blocks.map((b) => [b.id, b]));
+    const top = new Map<string, Association>();
+    for (const a of assocs) if (a.rank === 1 || a.status === "CONFIRMED") if (!top.has(a.text_block_id) || a.status === "CONFIRMED") top.set(a.text_block_id, a);
+    const conflictTexts = new Set(assocs.filter((a) => a.status === "CONFLICT").map((a) => a.text_block_id));
+    let texts: TextBlock[] = [];
+    if (layers.includes("text")) texts = blocks;
+    else if (layers.includes("conflicts")) texts = blocks.filter((b) => conflictTexts.has(b.id));
+    // association lines ONLY for the current selection (never every link of a large drawing)
+    const sel = assocs.filter((a) => (selText && a.text_block_id === selText) || (selGeo && a.geometry_id === selGeo));
+    const links: AssocLink[] = layers.includes("links") ? sel.flatMap((a) => {
+      const g = geoById.get(a.geometry_id), b = blockById.get(a.text_block_id);
+      return g && b ? [{ key: a.id, from: b.center, to: centre(g), color: ASSOC_COLOR[a.status] ?? "#1f6feb" }] : [];
+    }) : [];
+    const tags: Tag[] = [];
+    if (layers.includes("measures") || layers.includes("conflicts")) for (const a of top.values()) {
+      const g = geoById.get(a.geometry_id);
+      if (!g || a.measured_value == null) continue;
+      if (a.status === "CONFLICT" && layers.includes("conflicts")) tags.push({ key: a.id, at: centre(g), color: ASSOC_COLOR.CONFLICT, text: `≠ ${a.text_value} / ${a.measured_value} m` });
+      else if (layers.includes("measures")) tags.push({ key: a.id, at: centre(g), color: "#2b8a3e", text: `${a.measured_value} m` });
+    }
+    const highlight = new Set(sel.map((a) => a.geometry_id));
+    const shownGeo = showGeo ? geo : geo.filter((g) => highlight.has(g.id));
+    return { texts, links, tags, shownGeo, colorOf: (t: TextBlock) => {
+      if (conflictTexts.has(t.id)) return ASSOC_COLOR.CONFLICT;
+      const a = top.get(t.id);
+      return a ? ASSOC_COLOR[a.status] ?? "#1f6feb" : "#adb5bd";
+    } };
+  }, [geo, blocks, assocs, layers, selText, selGeo, showGeo]);
   if (err) return <main><p className="error">{err}</p></main>;
   if (!d) return <main><p>Đang tải…</p></main>;
+  const toggleLayer = (k: Layer) => setLayers((ls) => (ls.includes(k) ? ls.filter((x) => x !== k) : [...ls, k]));
+  const onGeoClick = (gid: string) => {
+    if (picking) {
+      api<Association>(`/associations/${picking.id}`, { method: "PATCH", body: JSON.stringify({ geometry_id: gid, reason: picking.reason }) })
+        .then((r) => { setAssocs((all) => all.map((x) => (x.id === r.id ? r : x))); setPicking(undefined); })
+        .catch((e) => alert(errorText(e)));
+      return;
+    }
+    setSelGeo(gid); setSelText(undefined);
+  };
+  const reloadAssocs = () => api<Association[]>(`/drawings/${id}/pages/${pageNo}/associations`).then(setAssocs).catch((e) => setErr(errorText(e)));
   const toggle = (k: string) => setKinds((ks) => (ks.includes(k) ? ks.filter((x) => x !== k) : [...ks, k]));
   return (
     <main className="wide">
@@ -113,7 +176,12 @@ export default function DrawingDetailPage() {
       {page && <div className="drawing-layout">
         <div>
           <PageViewer drawingId={d.id} page={page} items={items} selectedId={sel} onSelect={setSel}
-            geometry={geo} selectedGeo={selGeo} onSelectGeo={setSelGeo} />
+            geometry={overlay.shownGeo} selectedGeo={selGeo} onSelectGeo={onGeoClick}
+            texts={overlay.texts} textColor={overlay.colorOf} selectedText={selText}
+            onSelectText={(tid) => { setSelText(tid); setSelGeo(undefined); }} links={overlay.links} tags={overlay.tags} />
+          <div className="row overlay-toggles" aria-label="Lớp hiển thị">{LAYERS.map(([k, label]) => (
+            <label key={k}><input type="checkbox" checked={layers.includes(k)} onChange={() => toggleLayer(k)} />{label}</label>))}
+            {picking && <span className="error">Đang chọn hình học mới…</span>}</div>
           <label className="row"><input type="checkbox" checked={showGeo} onChange={(e) => setShowGeo(e.target.checked)} />
             Hiện hình học vector ({page.geometry_status ?? "—"}{page.geometry_stats?.by_kind ? `: ${Object.entries(page.geometry_stats.by_kind).map(([k, v]) => `${k} ${v}`).join(", ")}` : ""})</label>
           <div className="row legend">{Object.keys(ITEM_KIND).map((k) => (
@@ -127,6 +195,10 @@ export default function DrawingDetailPage() {
             {" · "}Bộ môn: {page.disciplines?.map((x) => `${DISCIPLINE[x.value] ?? x.value} (${x.basis})`).join(", ") || "—"}
             {" · "}Dạng: {page.view_types?.map((x) => VIEW[x.value] ?? x.value).join(", ") || "—"}</p>
           {page.warnings.length > 0 && <p className="error">Cảnh báo: {page.warnings.join(", ")}</p>}
+          {need5c && (selText || selGeo) && <AssociationPanel block={blocks.find((b) => b.id === selText)} geometryId={selText ? undefined : selGeo}
+            blocks={blocks} assocs={assocs} picking={picking?.id}
+            onPick={(aid, reason) => setPicking(aid ? { id: aid, reason } : undefined)}
+            onChanged={() => { reloadAssocs(); }} onSelectGeo={(gid) => setSelGeo(gid)} />}
           {selGeo && <GeometryPanel id={selGeo} onChanged={(g) => setGeo((all) => all.map((x) => (x.id === g.id ? { ...x, status: g.status } : x)))} />}
           <Calibration drawingId={d.id} page={page} onDone={load} />
           <div className="scroll items"><table><thead><tr><th>Loại</th><th>Văn bản gốc</th><th>Giá trị</th><th>Tin cậy</th><th>Nguồn</th><th>Cờ</th></tr></thead>

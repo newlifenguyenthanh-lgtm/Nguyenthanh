@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import DrawingDetailPage from "./DrawingDetailPage";
@@ -31,6 +31,22 @@ const geometry = [
     length_pt: "140.0000", area_pt2: "1200.0000", stroke_width: 1, derived_from: null, approximate: false, flags: [], duplicate_of: null,
     status: "confirmed", review_note: "", layer: null, source: { path_index: 4, item_index: 0 } },
 ];
+const blocks = [
+  { id: "t1", page_no: 1, extracted_item_id: "x1", original_text: "L=13.50m", normalized_text: "L=13.50m", bbox: [200, 80, 260, 92],
+    center: [230, 86], rotation: 0, font_size: 9, font_name: null, source: "text", confidence: null, text_type: "LENGTH",
+    values: { length: { value_m: "13.50" } }, flags: [], encoding: null, repeat_count: 1 },
+  { id: "t2", page_no: 1, extracted_item_id: "x2", original_text: "25.40", normalized_text: "25.40", bbox: [20, 20, 40, 30],
+    center: [30, 25], rotation: 0, font_size: 8, font_name: null, source: "text", confidence: null, text_type: "TABLE",
+    values: {}, flags: ["in_table"], encoding: null, repeat_count: 1 },
+];
+const assoc = (over: Record<string, unknown>) => ({
+  id: "a1", drawing_id: "d1", page_no: 1, text_block_id: "t1", geometry_id: "g1", association_type: "DIMENSION_OF", rank: 1,
+  distance: 4.2, angle_difference: 0, overlap_ratio: 1, orientation_match: true, semantic_match: 1, relation: "above", components: {},
+  confidence: 0.962, status: "CONFLICT", reason: "Chữ: 13.5 m · Hình học: 12.7 m · Chênh: 0.8 m – không tự sửa", origin: "rule",
+  duplicate_of: null, measurement_id: "m1", text_value: "13.5", measured_value: "12.7", difference: "0.8", unit: "m", history: [],
+  decided_by: null, decided_at: null, ...over });
+const associations = [assoc({}), assoc({ id: "a2", geometry_id: "g2", rank: 2, confidence: 0.4, status: "CANDIDATE", reason: "Phương án thay thế hạng 2",
+  text_value: null, measured_value: null, difference: null, measurement_id: null })];
 let calls: { url: string; method: string; body?: string }[];
 beforeEach(() => {
   calls = [];
@@ -47,6 +63,13 @@ beforeEach(() => {
       real_basis: "Tỷ lệ trang chưa được kỹ sư xác nhận – không thể đổi sang kích thước thật" });
     if (url === "/geometry/g1" && method === "PATCH") return json({ ...geometry[0], status: "ambiguous", review_note: "Không rõ" });
     if (url.startsWith("/drawings/d1/items")) return json(items);
+    if (url === "/drawings/d1/pages/1/text-blocks") return json(blocks);
+    if (url === "/drawings/d1/pages/1/associations") return json(associations);
+    if (url === "/associations/a1/reject") return JSON.parse(init!.body as string).note ? json(assoc({ status: "REJECTED" }))
+      : json({ detail: "Cần ghi lý do loại bỏ" }, 422);
+    if (url === "/associations/a1/confirm") return json(assoc({ status: "CONFIRMED" }));
+    if (url === "/associations/a1" && method === "PATCH") return json(assoc({ geometry_id: "g2", origin: "engineer", status: "REVIEW_REQUIRED",
+      history: [{ old_geometry_id: "g1", new_geometry_id: "g2", reason: "đường khác", user: "qs@a.test", timestamp: "2026-11-05T00:00:00Z" }] }));
     if (url.endsWith("/calibration")) return json({ ...page, scale_status: "confirmed", scale_ratio: 100, warnings: [] });
     if (url === "/drawings" && method === "GET") return json([]);
     if (url === "/projects") return json([]);
@@ -101,6 +124,66 @@ describe("vector geometry overlay (Phase 5A)", () => {
     fireEvent.click(screen.getByText("Không rõ"));
     await waitFor(() => expect(calls.some((c) => c.url === "/geometry/g1" && c.method === "PATCH")).toBe(true));
     expect(JSON.parse(calls.find((c) => c.method === "PATCH")!.body!)).toEqual({ status: "ambiguous", note: "Không rõ" });
+  });
+});
+
+describe("text ↔ geometry association overlay (Phase 5C)", () => {
+  const open = async () => {
+    const r = render(<MemoryRouter initialEntries={["/drawings/d1"]}><Routes><Route path="/drawings/:id" element={<DrawingDetailPage />} /></Routes></MemoryRouter>);
+    await screen.findByText(/KC-01 – Rev A/);
+    return r;
+  };
+
+  it("loads nothing until a layer is switched on, then shows text blocks coloured by status", async () => {
+    const { container } = await open();
+    expect(calls.some((c) => c.url.includes("/associations"))).toBe(false);
+    fireEvent.click(screen.getByLabelText("Chữ"));
+    await waitFor(() => expect(container.querySelectorAll("[data-text]").length).toBe(2));
+    expect(container.querySelector('[data-text="t1"]')!.getAttribute("stroke")).toBe("#eb5757");  // conflict
+    expect(container.querySelector('[data-text="t2"]')!.getAttribute("stroke")).toBe("#adb5bd");  // table text: no association
+    expect(container.querySelectorAll("[data-geo]").length).toBe(0);  // geometry layer still off
+  });
+
+  it("clicking a text shows ranked candidates with Text / Geometry / Difference and draws only its links", async () => {
+    const { container } = await open();
+    fireEvent.click(screen.getByLabelText("Chữ"));
+    fireEvent.click(screen.getByLabelText("Liên kết"));
+    await waitFor(() => expect(container.querySelector('[data-text="t1"]')).toBeTruthy());
+    expect(container.querySelectorAll("[data-link]").length).toBe(0);  // nothing selected -> no lines
+    fireEvent.click(container.querySelector('[data-text="t1"]')!);
+    expect(await screen.findByText(/Chữ: 13.5 m · Hình học: 12.7 m · Chênh: 0.8 m$/)).toBeTruthy();
+    await waitFor(() => expect(container.querySelectorAll("[data-link]").length).toBe(2));
+    expect(container.querySelectorAll("[data-assoc]").length).toBe(2);
+    expect(screen.getAllByText("Xung đột").length).toBeGreaterThan(0);
+    // only the selected association's geometries are drawn while the full geometry layer is off
+    expect(container.querySelectorAll("[data-geo]").length).toBe(2);
+  });
+
+  it("reject needs a reason; confirm and reassign go to the backend with the engineer's note", async () => {
+    const { container } = await open();
+    fireEvent.click(screen.getByLabelText("Chữ"));
+    fireEvent.click(screen.getByLabelText("Liên kết"));
+    await waitFor(() => expect(container.querySelector('[data-text="t1"]')).toBeTruthy());
+    fireEvent.click(container.querySelector('[data-text="t1"]')!);
+    const first = await waitFor(() => container.querySelector('[data-assoc="a1"]') as HTMLElement);
+    fireEvent.click(within(first).getByText("Loại bỏ"));
+    expect(await screen.findByText(/Cần ghi lý do loại bỏ/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Ghi chú liên kết"), { target: { value: "đường khác" } });
+    fireEvent.click(within(first).getByText("Chọn hình học khác"));
+    await waitFor(() => expect(container.querySelector('[data-geo="g2"]')).toBeTruthy());
+    fireEvent.click(container.querySelector('[data-geo="g2"]')!);
+    await waitFor(() => expect(calls.some((c) => c.url === "/associations/a1" && c.method === "PATCH")).toBe(true));
+    expect(JSON.parse(calls.find((c) => c.method === "PATCH" && c.url === "/associations/a1")!.body!)).toEqual({ geometry_id: "g2", reason: "đường khác" });
+    fireEvent.click(within(container.querySelector('[data-assoc="a1"]') as HTMLElement).getByText("Chấp nhận"));
+    await waitFor(() => expect(calls.some((c) => c.url === "/associations/a1/confirm")).toBe(true));
+    expect(JSON.parse(calls.find((c) => c.url === "/associations/a1/confirm")!.body!)).toEqual({ note: "đường khác" });
+  });
+
+  it("conflict layer alone shows only conflicting texts and their Text ≠ Geometry tag", async () => {
+    const { container } = await open();
+    fireEvent.click(screen.getByLabelText("Xung đột"));
+    await waitFor(() => expect(container.querySelectorAll("[data-text]").length).toBe(1));
+    await waitFor(() => expect(container.querySelector('[data-tag="a1"]')?.textContent).toBe("≠ 13.5 / 12.7 m"));
   });
 });
 

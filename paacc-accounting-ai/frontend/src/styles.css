@@ -84,3 +84,6 @@ table.hist { font-size: 12px; margin-top: 6px; }
 .geo-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
 .geo-layer polyline, .geo-layer polygon { pointer-events: stroke; cursor: pointer; }
 .geo-layer polygon[fill]:not([fill='none']) { pointer-events: visibleStroke; }
+.assoc-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+.assoc-layer rect { pointer-events: all; cursor: pointer; }
+.overlay-toggles label { margin-right: 10px; }

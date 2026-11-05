@@ -29,6 +29,7 @@ class TextLine:
     confidence: float | None  # 0-1; None for embedded text (exact)
     direction: tuple[float, float] = (1.0, 0.0)
     font_size: float | None = None
+    font_name: str | None = None
 
 
 @dataclass
@@ -130,7 +131,7 @@ def _page(page, page_no, ocr, min_chars, ocr_dpi, max_side, ocr_mixed) -> PageRe
             if text:
                 lines.append(TextLine(page_no, text, _disp(ln["bbox"], page), "text", None,
                                       tuple(round(v, 3) for v in ln["dir"]),
-                                      round(max(s["size"] for s in ln["spans"]), 2)))
+                                      round(max(s["size"] for s in ln["spans"]), 2), ln["spans"][0].get("font")))
     chars = sum(len(t.text) for t in lines)
     coverage = _image_coverage(page)
     paths = len(page.get_drawings())

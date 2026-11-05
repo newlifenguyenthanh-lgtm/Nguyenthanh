@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     boq_four_eyes: bool = True  # submitter may not approve their own BOQ
     pdf_max_pages: int = 200
     geometry_on_process: bool = True  # extract vector geometry during drawing processing (Phase 5A)
+    association_on_process: bool = True  # Phase 5C: text <-> geometry candidates after geometry extraction
+    assoc_auto_threshold: float = 0.90
+    assoc_review_threshold: float = 0.70
+    assoc_margin: float = 0.10
+    assoc_conflict_abs_m: str = "0.01"  # |text - measured| tolerance: max(abs, rel x text)
+    assoc_conflict_rel: str = "0.005"
     ocr_enabled: bool = True
     ocr_dpi: int = 300
     ocr_max_side_px: int = 7000

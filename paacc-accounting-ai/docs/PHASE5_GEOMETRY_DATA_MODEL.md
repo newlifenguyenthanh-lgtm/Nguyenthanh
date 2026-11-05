@@ -31,13 +31,49 @@
 
 **Quy tắc ghi:** chỉ trích xuất lại khi chưa có primitive nào được kỹ sư review. Nếu đã có thì trả 409, không ghi đè quyết định của người.
 
-## Kế hoạch 5B–5E (chưa có migration; sẽ thêm khi triển khai)
+## 5B (đã triển khai, migration `0010_scale_regions_and_measurements`)
+`scale_regions`, `measurements`. Xem `PHASE5B_MEASUREMENT_ENGINE.md`. 5C thêm hai giá trị:
+- `measurements.kind = chainage_interval`
+- `method = chainage-5C`
+
+## 5C (đã triển khai, migration `0011_text_blocks_and_associations`)
+
+### `drawing_text_blocks`
+| Cột | Ý nghĩa |
+|---|---|
+| `extracted_item_id` | dòng chữ nguồn (`extracted_items`, kind `text`). Id khối ổn định qua các lần chạy lại |
+| `original_text` | chữ gốc, **không bao giờ sửa**; giữ cả TCVN3/VNI |
+| `normalized_text` | NFC, `×→x`, bỏ khoảng trắng thừa, `L = 5` → `L=5`. Không đổi dấu thập phân hay mã hoá |
+| `x0..y1`, `center_x/y`, `rotation`, `font_size`, `font_name` | không gian DISPLAY (pt) |
+| `text_type` | UNKNOWN, DIMENSION, LENGTH, AREA, COUNT, CHAINAGE, MATERIAL, SPECIFICATION, LABEL, NOTE, DETAIL_REFERENCE, TITLE, TABLE, SCALE, REVISION, OTHER |
+| `values` | JSON giá trị đã phân tích (Decimal dạng chuỗi): `length.value_m`, `chainage[].meters`, `dimensions`, `specs`, `references` |
+| `flags` | `in_table`, `in_title_block`, `page_number`, `unit_case_ambiguous`, `ambiguous_number`, `ENCODING_UNKNOWN`, `legacy_encoding`, `brand_or_notation_possible` |
+| `encoding` | kết quả phát hiện 5A.1 (khi có nghi ngờ) |
+| `repeat_count` | số lần chữ chuẩn hoá xuất hiện trên trang |
+
+### `text_geometry_associations`
+| Cột | Ý nghĩa |
+|---|---|
+| `text_block_id`, `geometry_id` | chủ thể và đối tượng |
+| `association_type` | DIMENSION_OF, LABEL_OF, NOTE_FOR, MATERIAL_OF, REFERENCE_TO, CHAINAGE_FOR, SCALE_FOR, UNKNOWN |
+| `rank`, `confidence` | thứ hạng; điểm heuristic 0–1 (float, **không phải số lượng**) |
+| `distance`, `angle_difference`, `overlap_ratio`, `orientation_match`, `semantic_match`, `relation`, `components` | các thành phần điểm, lưu để giải thích được |
+| `status` | CANDIDATE, REVIEW_REQUIRED, CONFIRMED, REJECTED, AMBIGUOUS, CONFLICT |
+| `origin` | `rule` / `engineer` / `ai_inferred` (LLM chỉ được tạo ứng viên) |
+| `duplicate_of` | liên kết chính khi chữ lặp lại cho cùng hình học; bản lặp không tạo phép đo |
+| `measurement_id` | phép đo 5B hoặc khoảng lý trình dùng để so sánh |
+| `text_value`, `measured_value`, `difference` | Numeric(24,6), mét: Chữ / Hình học / Chênh |
+| `history` | danh sách `{old_geometry_id, new_geometry_id, reason, user, user_id, timestamp}` khi đổi hình học |
+| `decided_by`, `decided_at` | người và thời điểm quyết định review |
+
+**Quy tắc ghi:**
+- Khi chạy lại, chỉ xoá ứng viên `rule` còn mở và chưa có ai quyết định.
+- Liên kết do kỹ sư tạo hoặc đã quyết định thì giữ nguyên.
+- Downstream (5E) chỉ được dùng `status = CONFIRMED` và `duplicate_of IS NULL`.
+
+## Kế hoạch 5D–5E
 
 | Bảng | Nội dung chính |
 |---|---|
-| `scale_regions` | page, bbox, scale_ratio, status (confirmed bởi kỹ sư), nguồn ứng viên |
-| `measurements` | geometry_ids[], loại đo (length/area/count/spacing/chainage_interval), giá trị Decimal, đơn vị, scale_region, công thức, trạng thái, người xác nhận |
-| `associations` | text_item_id ↔ geometry_ids, loại (dimension/label/chainage/spec/reference/note), điểm số, lý do, `AMBIGUOUS/CONFLICT` |
-| `chainage_marks` | page, text_item_id, giá trị mét (Decimal, từ `Km a+bbb`), phía (trái/phải/tim), geometry liên kết |
 | `recognized_objects` | loại cấu kiện, geometry_ids, thuộc tính (từ association), quy tắc nhận dạng + phiên bản, tier (deterministic / rule / CV / LLM / human), trạng thái |
-| `boq_items.inputs.*` | thêm `source_geometry_ids`, `measurement_id` (không đổi schema BOQ, chỉ thêm khoá trong JSON) |
+| `boq_items.inputs.*` | thêm `source_geometry_ids`, `measurement_id`, `association_ids` (không đổi schema BOQ, chỉ thêm khoá trong JSON) |

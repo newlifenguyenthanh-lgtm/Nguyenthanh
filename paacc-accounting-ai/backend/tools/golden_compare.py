@@ -209,9 +209,33 @@ def compare(expected: dict, run: dict) -> dict:
         total = sum(r["expected"] for r in geo_rows)
         out["geometry"] = {"rows": geo_rows, "counts": dict(gc), "total": total, "accuracy_pct": pct(gc, total),
                            "false_positives": [v for r in geo_rows for v in r["vector_only"]]}
+    # ---- text <-> geometry association (Phase 5C): invariants checkable on ANY real document
+    #      every text that must never be associated (table / title block / scale / revision / page number / unknown)
+    #      has zero associations, and nothing is ever auto-confirmed.
+    if expected.get("associations") is not None and run.get("text_blocks") is not None:
+        from app.association.engine import EXCLUDED_TYPES
+        ac, rows, fps = Counter(), [], []
+        for page, blocks in run["text_blocks"].items():
+            assoc = run.get("associations", {}).get(page, [])
+            linked = {a["text_block_id"] for a in assoc}
+            for b in blocks:
+                if b["text_type"] in EXCLUDED_TYPES or {"in_table", "in_title_block", "page_number"} & set(b["flags"]):
+                    ok = b["id"] not in linked
+                    ac[CORRECT if ok else INCORRECT] += 1
+                    if not ok:
+                        fps.append({"page": page, "text_type": b["text_type"]})
+            rows.append({"page": page, "text_blocks": len(blocks), "associations": len(assoc),
+                         "auto_confirmed": sum(1 for a in assoc if a["status"] == "CONFIRMED"),
+                         "by_status": dict(Counter(a["status"] for a in assoc))})
+        total = sum(ac.values())
+        mx = expected["associations"].get("max_candidates")
+        out["associations"] = {"rows": rows, "counts": dict(ac), "total": total, "accuracy_pct": pct(ac, total),
+                               "false_positives": fps, "auto_confirmed": sum(r["auto_confirmed"] for r in rows),
+                               "candidates": sum(r["associations"] for r in rows),
+                               "candidates_within_expected": mx is None or sum(r["associations"] for r in rows) <= mx}
     out["pipeline_steps"] = run.get("steps")
     out["summary"] = {k: {"correct": out[k]["counts"].get(CORRECT, 0), "total": out[k]["total"], "accuracy_pct": out[k]["accuracy_pct"]}
-                      for k in ("metadata", "dimensions", "materials", "boq", "duplicates", "geometry") if k in out}
+                      for k in ("metadata", "dimensions", "materials", "boq", "duplicates", "geometry", "associations") if k in out}
     out["summary"]["dimension_false_positives"] = len(out["dimensions"]["false_positives"])
     out["summary"]["boq_false_positive_items"] = len(out["boq"]["false_positives"])
     out["summary"]["group_context"] = out["boq"]["group_context"]

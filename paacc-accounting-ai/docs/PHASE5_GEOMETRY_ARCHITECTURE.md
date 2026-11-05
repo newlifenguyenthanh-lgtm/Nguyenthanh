@@ -6,11 +6,12 @@
 PDF (bất biến, SHA-256)
  └─ Phase 4A extract (text, bảng, OCR)            app/pdf/extract.py
  └─ Phase 4B analysis (kích thước, quy cách…)     app/pdf/analysis.py
- └─ Phase 5A vector geometry          ◄── MỚI     app/geometry/{coords,primitives,service}.py
+ └─ Phase 5A vector geometry   (xong)            app/geometry/{coords,primitives,service}.py
       page.get_drawings() → primitive (line/polyline/polygon/rect/fill/curve/circle)
       → hệ toạ độ hiển thị → trùng lặp/chồng lấn → geometry_primitives
- └─ 5B measurement engine (Decimal)               app/geometry/measure.py (kế hoạch)
- └─ 5C association text ↔ geometry, lý trình      app/geometry/associate.py, app/geometry/chainage.py
+ └─ 5B measurement engine (Decimal)  (xong)       app/geometry/{measure,measure_service}.py
+ └─ 5C association text ↔ geometry, lý trình (xong; chưa kiểm chứng trên bản vẽ thi công thật)
+                                                  app/association/{classify,engine,service}.py
  └─ 5D object recognition (rule-based trước)      app/geometry/objects.py
  └─ 5E quantity candidate → BOQ (engine hiện có)  app/boq/generate.py (thêm nguồn "geometry")
  └─ Review → Approval (4 mắt) → Excel (PAACC / company_kl)   (giữ nguyên)
@@ -63,11 +64,13 @@ PDF (bất biến, SHA-256)
 ```
 drawing (sha256, document_version) → page_no (page_frame) → bbox/region
  → geometry_primitive.id (path_index, item_index, derived_from)
+ → text block → association (5C: chữ gốc, loại, điểm số, trạng thái review; chỉ CONFIRMED đi tiếp)
  → measurement (5B: phép đo, đơn vị, tỷ lệ đã xác nhận, người xác nhận)
  → rule (5D/5E: quy tắc nhận dạng + tham số)
  → quantity candidate → boq_item (inputs[].source_geometry_ids, origin)
 ```
 - 5A cung cấp hai mắt xích đầu (đến geometry id và nguồn trong content stream).
+- 5C nối TEXT → ASSOCIATION → GEOMETRY → MEASUREMENT (`GET /associations/{id}` trả cả chuỗi). Xem `PHASE5C_TEXT_GEOMETRY_ASSOCIATION.md`.
 - Từ 5E, `boq_items.inputs.*.source_item_id` được mở rộng thêm `source_geometry_ids`. Không tạo bảng BOQ mới.
 
 ## 5. Hiệu năng và mở rộng
@@ -85,3 +88,9 @@ drawing (sha256, document_version) → page_no (page_frame) → bbox/region
 - Phát hiện mã hoá trên text đã trích xuất: `unicode` / `tcvn3` / `vni` / `garbled`, kèm độ tin cậy.
 - **Không sửa tự động.** Văn bản gốc luôn được giữ nguyên.
 - Chuyển đổi chỉ được làm khi đã có bảng mã kiểm chứng trên mẫu thật.
+
+## 8. Trạng thái Phase 5
+
+- **5A:** xong (vector geometry).
+- **5B:** xong (tối thiểu).
+- **5C:** xong. Còn chờ kiểm chứng trên bản vẽ thi công thật, vì bộ dữ liệu hiện tại chỉ có báo giá PDF và workbook.

@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 def analysis_hook():
-    """Post-extraction steps inside the same processing task: 4B text analysis, then 5A vector geometry.
+    """Post-extraction steps inside the same processing task: 4B text analysis, 5A vector geometry, 5C association candidates.
     A geometry failure never fails the drawing: affected pages get geometry_status='failed'."""
     from app.config import get_settings
     from app.geometry.service import extract_into
@@ -34,6 +34,17 @@ def analysis_hook():
             except Exception as e:  # noqa: BLE001
                 for p in db.scalars(select(DrawingPage).where(DrawingPage.drawing_id == d.id)):
                     p.geometry_status, p.geometry_stats = "failed", {"error": f"{type(e).__name__}: {e}"[:500]}
+        if get_settings().geometry_on_process and get_settings().association_on_process:
+            # 5C: candidates only (never confirmed here); a failure leaves the drawing processed without associations
+            from app.association.service import run as associate
+            db.flush()
+            try:
+                with db.begin_nested():
+                    stats = associate(db, d)
+            except Exception as e:  # noqa: BLE001
+                stats = {"error": f"{type(e).__name__}: {e}"[:500]}
+            for p in db.scalars(select(DrawingPage).where(DrawingPage.drawing_id == d.id)):
+                p.geometry_stats = {**(p.geometry_stats or {}), "association": stats}
     return run
 
 

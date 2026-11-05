@@ -144,3 +144,22 @@ def test_measurements_on_postgres(pg, monkeypatch):
     g = next(x for x in client.get(f"{B}/drawings/{d['id']}/geometry?kind=line", headers=a).json() if x["length_pt"] == "720.0000")
     m = client.post(f"{B}/measurements", json={"drawing_id": d["id"], "kind": "length", "geometry_ids": [g["id"]]}, headers=a).json()
     assert m["value_real"] == "25.400000" and client.get(f"{B}/measurements/{m['id']}", headers=a).json()["value_real"] == "25.400000"
+
+
+def test_associations_on_postgres(pg, monkeypatch):
+    from tests.geometry_helpers import sheet
+    use_ocr(monkeypatch, FakeOcr())
+    client, _ = pg
+    a = login(client, "admin@pga.test", "pw-admin-1")
+    d = process(client, a, upload(client, a, sheet())["id"]).json()
+    client.post(f"{B}/drawings/{d['id']}/pages/1/calibration", json={"scale_ratio": 100}, headers=a)
+    assert client.post(f"{B}/drawings/{d['id']}/associations/run", headers=a).status_code == 200
+    blocks = {b["original_text"]: b for b in client.get(f"{B}/drawings/{d['id']}/pages/1/text-blocks", headers=a).json()}
+    assert blocks["Km12+350"]["values"]["chainage"][0]["meters"] == "12350"
+    rows = client.get(f"{B}/drawings/{d['id']}/pages/1/associations?text_block_id={blocks['L=13.50m']['id']}", headers=a).json()
+    top = rows[0]
+    assert top["status"] == "CONFLICT" and (top["text_value"], top["measured_value"], top["difference"]) == ("13.5", "12.7", "0.8")
+    ok = client.post(f"{B}/associations/{top['id']}/confirm", json={"note": "kỹ sư chấp nhận, sẽ sửa bản vẽ"}, headers=a).json()
+    assert ok["status"] == "CONFIRMED"
+    p = client.get(f"{B}/associations/{top['id']}", headers=a).json()["provenance"]
+    assert p["measurement"]["value_real"] == "12.700000" and p["downstream_allowed"] is True

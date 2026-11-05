@@ -400,3 +400,63 @@ class Measurement(Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
     decided_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
     decided_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DrawingTextBlock(Base):
+    """Phase 5C: one text line of a page as an association subject. original_text is never modified."""
+    __tablename__ = "drawing_text_blocks"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    drawing_id: Mapped[uuid.UUID] = fk("drawings")
+    page_no: Mapped[int] = mapped_column(index=True)
+    extracted_item_id: Mapped[uuid.UUID] = fk("extracted_items")
+    original_text: Mapped[str] = mapped_column(String(4000))
+    normalized_text: Mapped[str] = mapped_column(String(4000))
+    x0: Mapped[float]
+    y0: Mapped[float]
+    x1: Mapped[float]
+    y1: Mapped[float]
+    center_x: Mapped[float]
+    center_y: Mapped[float]
+    rotation: Mapped[float] = mapped_column(default=0.0)  # degrees in DISPLAY space, 0 = left-to-right
+    font_size: Mapped[float | None]
+    font_name: Mapped[str | None] = mapped_column(String(128))
+    source: Mapped[str] = mapped_column(String(16))  # text | ocr
+    confidence: Mapped[float | None]
+    text_type: Mapped[str] = mapped_column(String(24), index=True)
+    values: Mapped[dict | None] = mapped_column(JSON)
+    flags: Mapped[list | None] = mapped_column(JSON)
+    encoding: Mapped[dict | None] = mapped_column(JSON)
+    repeat_count: Mapped[int] = mapped_column(default=1)  # same normalised text on the page
+    updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class TextGeometryAssociation(Base):
+    """Phase 5C: a candidate/decided link text block -> geometry primitive. Only CONFIRMED may flow downstream."""
+    __tablename__ = "text_geometry_associations"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    drawing_id: Mapped[uuid.UUID] = fk("drawings")
+    page_no: Mapped[int] = mapped_column(index=True)
+    text_block_id: Mapped[uuid.UUID] = fk("drawing_text_blocks")
+    geometry_id: Mapped[uuid.UUID] = fk("geometry_primitives")
+    association_type: Mapped[str] = mapped_column(String(24))
+    rank: Mapped[int] = mapped_column(default=1)
+    distance: Mapped[float | None]
+    angle_difference: Mapped[float | None]
+    overlap_ratio: Mapped[float | None]
+    orientation_match: Mapped[bool] = mapped_column(default=False)
+    semantic_match: Mapped[float | None]
+    relation: Mapped[str | None] = mapped_column(String(16))
+    components: Mapped[dict | None] = mapped_column(JSON)
+    confidence: Mapped[float] = mapped_column(default=0.0)
+    status: Mapped[str] = mapped_column(String(20), index=True)  # CANDIDATE|REVIEW_REQUIRED|CONFIRMED|REJECTED|AMBIGUOUS|CONFLICT
+    reason: Mapped[str] = mapped_column(String(2000), default="")
+    origin: Mapped[str] = mapped_column(String(16), default="rule")  # rule | engineer | ai_inferred
+    duplicate_of: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("text_geometry_associations.id"))
+    measurement_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("measurements.id"))
+    text_value: Mapped[Decimal | None] = mapped_column(Numeric(24, 6))  # metres, from the text
+    measured_value: Mapped[Decimal | None] = mapped_column(Numeric(24, 6))  # metres, from geometry + confirmed scale
+    difference: Mapped[Decimal | None] = mapped_column(Numeric(24, 6))
+    history: Mapped[list | None] = mapped_column(JSON)
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    decided_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

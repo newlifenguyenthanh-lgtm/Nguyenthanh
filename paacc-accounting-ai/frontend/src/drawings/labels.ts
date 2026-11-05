@@ -32,3 +32,19 @@ export const REL_VI: Record<string, string> = {
   different_revision_unordered: "khác phiên bản",
 };
 export function pct(v: number | null): string { return v == null ? "chính xác" : `${Math.round(v * 100)}%`; }
+export const TEXT_TYPE_VI: Record<string, string> = {
+  UNKNOWN: "Chưa rõ", DIMENSION: "Kích thước", LENGTH: "Chiều dài", AREA: "Diện tích", COUNT: "Số lượng", CHAINAGE: "Lý trình",
+  MATERIAL: "Vật liệu", SPECIFICATION: "Quy cách", LABEL: "Nhãn", NOTE: "Ghi chú", DETAIL_REFERENCE: "Tham chiếu chi tiết",
+  TITLE: "Khung tên", TABLE: "Bảng", SCALE: "Tỷ lệ", REVISION: "Lần sửa", OTHER: "Khác",
+};
+export const ASSOC_TYPE_VI: Record<string, string> = {
+  DIMENSION_OF: "Kích thước của", LABEL_OF: "Nhãn của", NOTE_FOR: "Ghi chú cho", MATERIAL_OF: "Vật liệu của",
+  REFERENCE_TO: "Tham chiếu tới", CHAINAGE_FOR: "Lý trình của", SCALE_FOR: "Tỷ lệ của", UNKNOWN: "Chưa rõ",
+};
+export const ASSOC_STATUS_VI: Record<string, string> = {
+  CANDIDATE: "Ứng viên", REVIEW_REQUIRED: "Cần kiểm tra", CONFIRMED: "Đã xác nhận", REJECTED: "Loại bỏ",
+  AMBIGUOUS: "Mơ hồ", CONFLICT: "Xung đột",
+};
+export const ASSOC_COLOR: Record<string, string> = {
+  CANDIDATE: "#1f6feb", REVIEW_REQUIRED: "#f2994a", CONFIRMED: "#27ae60", REJECTED: "#adb5bd", AMBIGUOUS: "#9b51e0", CONFLICT: "#eb5757",
+};

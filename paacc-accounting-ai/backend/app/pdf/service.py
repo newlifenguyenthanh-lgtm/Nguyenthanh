@@ -45,7 +45,7 @@ def persist_extraction(db: Session, d: Drawing, r: ExtractionResult) -> None:
             db.add(ExtractedItem(company_id=d.company_id, drawing_id=d.id, page_no=p.page_no, kind="text",
                                  text=ln.text[:4000], x0=ln.bbox[0], y0=ln.bbox[1], x1=ln.bbox[2], y1=ln.bbox[3],
                                  source=ln.source, confidence=ln.confidence,
-                                 data={"direction": list(ln.direction), "font_size": ln.font_size}))
+                                 data={"direction": list(ln.direction), "font_size": ln.font_size, "font_name": ln.font_name}))
         for t in p.tables:
             db.add(ExtractedItem(company_id=d.company_id, drawing_id=d.id, page_no=p.page_no, kind="table",
                                  text=" | ".join(" ; ".join(r) for r in t.rows)[:4000],

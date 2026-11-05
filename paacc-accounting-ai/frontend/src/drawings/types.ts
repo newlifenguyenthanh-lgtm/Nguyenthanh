@@ -27,3 +27,18 @@ export interface GeometryPrim {
   layer: string | null; source: { path_index: number; item_index: number };
   length_paper_mm?: string; length_real_m?: string | null; real_basis?: string;
 }
+export interface TextBlock {
+  id: string; page_no: number; extracted_item_id: string; original_text: string; normalized_text: string;
+  bbox: [number, number, number, number]; center: [number, number]; rotation: number; font_size: number | null; font_name: string | null;
+  source: string; confidence: number | null; text_type: string; values: Record<string, unknown>; flags: string[];
+  encoding: { encoding?: string; confidence?: number } | null; repeat_count: number;
+}
+export interface Association {
+  id: string; drawing_id: string; page_no: number; text_block_id: string; geometry_id: string; association_type: string; rank: number;
+  distance: number | null; angle_difference: number | null; overlap_ratio: number | null; orientation_match: boolean;
+  semantic_match: number | null; relation: string | null; components: Record<string, number>; confidence: number; status: string;
+  reason: string; origin: string; duplicate_of: string | null; measurement_id: string | null; text_value: string | null;
+  measured_value: string | null; difference: string | null; unit: string | null;
+  history: { old_geometry_id: string; new_geometry_id: string; reason: string; user: string; timestamp: string }[];
+  decided_by: string | null; decided_at: string | null;
+}

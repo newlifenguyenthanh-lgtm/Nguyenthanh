@@ -46,3 +46,5 @@ def test_golden_document_does_not_regress(expected_path, tmp_path):
         got = result["summary"][category]["correct"]
         assert got >= minimum, f"{category}: {got} correct < floor {minimum}"
     assert result["pipeline_steps"]["process"]["status"] == "processed"
+    if "associations" in result:  # 5C: nothing auto-confirmed; candidate count not above the reviewed expectation
+        assert result["associations"]["auto_confirmed"] == 0 and result["associations"]["candidates_within_expected"]

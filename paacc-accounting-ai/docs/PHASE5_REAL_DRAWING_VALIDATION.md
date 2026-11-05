@@ -69,3 +69,8 @@
   - `boq_from_geometry` (5E)
 - `regression_floor` trong manifest riêng: gate thất bại nếu bất kỳ hạng mục nào giảm.
 - **Cần ngay:** 3–5 PDF bản vẽ ATGT/hạ tầng thật (mặt bằng tuyến có lý trình, mặt cắt, chi tiết biển/cột/tôn sóng/hàng rào), lý tưởng là **chính các bản vẽ đã sinh ra workbook W4**, để đo lại khối lượng W4 từ hình học.
+
+## 5. Real Construction Drawing Validation Trial
+- Harness: `backend/tools/validate_real_drawing.py`. Tài liệu: `REAL_DRAWING_VALIDATION_HARNESS.md`.
+- **Trạng thái: CHƯA THỰC HIỆN.** Chưa nhận được bản vẽ thi công thật trong phiên làm việc. Chưa có kết luận độ chính xác nào.
+- Harness đã chạy trên PDF giả lập (kiểm logic) và R1 (báo giá; chỉ kiểm tương thích pipeline).

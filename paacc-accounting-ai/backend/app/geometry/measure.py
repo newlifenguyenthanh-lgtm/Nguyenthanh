@@ -11,9 +11,10 @@ from app.geometry.coords import PT_TO_MM
 from app.takeoff.engine import CalcError
 
 Pt = tuple[Decimal, Decimal]
-KINDS = ("length", "perimeter", "area", "count", "distance", "spacing")
+KINDS = ("length", "perimeter", "area", "count", "distance", "spacing", "diameter")
 REAL_DP = {"length": Decimal("0.001"), "perimeter": Decimal("0.001"), "distance": Decimal("0.001"),
-           "spacing": Decimal("0.001"), "area": Decimal("0.0001"), "count": Decimal("1")}
+           "spacing": Decimal("0.001"), "area": Decimal("0.0001"), "count": Decimal("1"),
+           "diameter": Decimal("0.0001")}  # diameter added in 5D (circle symbols: posts, pipes)
 
 
 @dataclass(frozen=True)
@@ -121,6 +122,12 @@ def _paper(kind: str, prims: list[Prim]) -> tuple[Decimal, str, str, dict]:
         return mean, "pt", f"trung bình {len(gaps)} khoảng", {"gaps_pt": [str(g.quantize(Decimal('0.01'))) for g in gaps],
                                                               "spread_pt": str(spread.quantize(Decimal('0.01'))),
                                                               "uniform": spread <= mean * Decimal("0.02")}
+    if kind == "diameter":
+        if len(prims) != 1 or prims[0].kind != "circle":
+            raise CalcError("need_circle", "Đường kính chỉ đo trên đúng 1 đường tròn")
+        b = prims[0].bbox
+        v = ((b[2] - b[0]) + (b[3] - b[1])) / 2
+        return v, "pt", "đường kính = trung bình bề rộng/bề cao hộp bao đường tròn", {}
     raise CalcError("unknown_kind", f"Loại phép đo không hợp lệ: {kind}")
 
 

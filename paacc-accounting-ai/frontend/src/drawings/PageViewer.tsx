@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiBlob } from "../api";
 import { GEO_COLOR } from "./GeometryPanel";
-import type { GeometryPrim, Item, Page, TextBlock } from "./types";
+import type { Component, GeometryPrim, Item, Page, TextBlock } from "./types";
 
 export interface Link { key: string; from: [number, number]; to: [number, number]; color: string }
 export interface Tag { key: string; at: [number, number]; text: string; color: string }
@@ -13,12 +13,16 @@ export const KIND_COLOR: Record<string, string> = {
 
 /** Rendered page with bounding boxes. bbox is in PDF points (displayed space) -> positioned in % of page size. */
 export default function PageViewer({ drawingId, page, items, selectedId, onSelect, geometry = [], selectedGeo, onSelectGeo,
-  texts = [], textColor, selectedText, onSelectText, links = [], tags = [] }:
+  texts = [], textColor, selectedText, onSelectText, links = [], tags = [], comps = [], compColor, selectedComp, onSelectComp,
+  highlight = [] }:
   { drawingId: string; page: Page; items: Item[]; selectedId?: string; onSelect: (id: string) => void;
     geometry?: GeometryPrim[]; selectedGeo?: string; onSelectGeo?: (id: string) => void;
     /** Phase 5C overlay: text blocks, association lines (selection only) and measurement / conflict tags. */
     texts?: TextBlock[]; textColor?: (t: TextBlock) => string; selectedText?: string; onSelectText?: (id: string) => void;
-    links?: Link[]; tags?: Tag[] }) {
+    links?: Link[]; tags?: Tag[];
+    /** Phase 5D overlay: component outlines; highlight = source geometry of the selected component. */
+    comps?: Component[]; compColor?: (c: Component) => string; selectedComp?: string; onSelectComp?: (id: string) => void;
+    highlight?: string[] }) {
   const [url, setUrl] = useState<string>("");
   const [err, setErr] = useState("");
   useEffect(() => {
@@ -37,11 +41,23 @@ export default function PageViewer({ drawingId, page, items, selectedId, onSelec
         <svg className="geo-layer" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label="Lớp hình học vector">
           {geometry.map((g) => {
             const pts = g.points.map(([x, y]) => `${x},${y}`).join(" ");
-            const sel = g.id === selectedGeo;
+            const sel = g.id === selectedGeo || highlight.includes(g.id);
             const props = { "data-geo": g.id, onClick: () => onSelectGeo?.(g.id), stroke: sel ? "#e8590c" : GEO_COLOR[g.status] ?? "#1f6feb",
               strokeWidth: sel ? 3 : 1.5, vectorEffect: "non-scaling-stroke" as const, fill: g.kind === "fill_region" ? "#1f6feb22" : "none",
               strokeDasharray: g.status === "rejected" ? "4 3" : undefined };
             return g.closed ? <polygon key={g.id} {...props} points={pts} /> : <polyline key={g.id} {...props} points={pts} />;
+          })}
+        </svg>
+      )}
+      {comps.length > 0 && (
+        <svg className="assoc-layer" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label="Lớp cấu kiện">
+          {comps.map((c) => {
+            const [x0, y0, x1, y1] = c.bbox;
+            const pad = 3;
+            return <rect key={c.id} data-comp={c.id} x={x0 - pad} y={y0 - pad} width={x1 - x0 + 2 * pad} height={y1 - y0 + 2 * pad}
+              fill={c.id === selectedComp ? "#e8590c22" : "transparent"} stroke={compColor?.(c) ?? "#5f3dc4"} strokeDasharray="6 3"
+              strokeWidth={c.id === selectedComp ? 2.5 : 1.5} vectorEffect="non-scaling-stroke" onClick={() => onSelectComp?.(c.id)}>
+              <title>{`${c.component_type} – ${c.status}`}</title></rect>;
           })}
         </svg>
       )}

@@ -16,7 +16,7 @@
   PAACC_GOLDEN_DIR=… pytest tests/test_golden_dataset.py
   ```
 - **Kỳ vọng hình học của R1** được sinh bằng kênh raster độc lập (`tools/raster_lines.py`: 288 dpi, ngưỡng mực 200, đường ≥ 15 pt, nối khe ≤ 1,5 pt), rồi soát lại thủ công. Loại trừ duy nhất: 4 đường nằm trong ảnh con dấu/chữ ký nhúng, là nội dung raster nên đúng ra không có vector.
-- **Ngưỡng regression riêng tư:** metadata 12, dimensions 60, materials 7, BOQ 50, duplicates 38, geometry 94, associations 263 (bất biến loại trừ 5C). Gate cũng yêu cầu 0 liên kết tự xác nhận và số ứng viên không vượt mức đã soát (2).
+- **Ngưỡng regression riêng tư:** metadata 12, dimensions 60, materials 7, BOQ 50, duplicates 38, geometry 94, associations 263 (bất biến loại trừ 5C), components 263 (bất biến loại trừ 5D, trần 0 ứng viên). Gate cũng yêu cầu 0 liên kết tự xác nhận và số ứng viên không vượt mức đã soát (2).
 
 ## 2. Ma trận năng lực (sau 5A)
 
@@ -34,7 +34,8 @@
 | Lý trình (chainage) | W4 có lý trình dạng text trong Excel, không có bản vẽ | – | parser + khoảng lý trình (5C) chỉ test synthetic | Synthetic: đã test. Real construction drawing: **chưa kiểm chứng** |
 | Liên kết chữ ↔ hình học (5C) – bất biến | R1 (báo giá, **không phải bản vẽ thi công**) | 263 khối chữ bảng/khung tên/số trang/tỷ lệ/khác: 0 liên kết; 0 tự xác nhận | 263/263; 0 tự xác nhận; 2 ứng viên (1 tiêu đề in hoa → đường kẻ gần, trạng thái REVIEW_REQUIRED, không có nghĩa trên báo giá) | **PASS (Real PDF)** chỉ cho bất biến loại trừ. Độ chính xác liên kết trên bản vẽ thật: **chưa kiểm chứng** |
 | Liên kết chữ ↔ hình học (5C) – độ chính xác | – | – | chỉ synthetic (`geometry_helpers.sheet`) | Chưa kiểm chứng thật |
-| Nhận dạng cấu kiện | – | – | chưa triển khai | 5D, cần bản vẽ thật |
+| Nhận dạng cấu kiện (5D) – bất biến | R1 (báo giá, **không phải bản vẽ thi công**) | 0 cấu kiện từ chữ bảng / khung tên / số trang; 0 tự xác nhận | 263/263; 0 ứng viên; 0 tự xác nhận | **PASS (Real PDF)** chỉ cho bất biến loại trừ |
+| Nhận dạng cấu kiện (5D) – độ chính xác | – | – | chỉ synthetic (`tests/component_helpers.py`) | Real construction drawing: **NOT AVAILABLE** – không tuyên bố độ chính xác |
 | Phát hiện trùng lặp hình học | R1 | 0 trùng lặp thật | 0 | PASS (thật), nhưng chỉ có trường hợp âm tính; dương tính mới có synthetic |
 | Phát hiện trùng lặp BOQ | R1 | 38 trường hợp | 38/38 (Phase 4.1) | PASS (thật) |
 | Tích hợp BOQ (từ geometry) | – | – | chưa triển khai (5E) | Chưa có |

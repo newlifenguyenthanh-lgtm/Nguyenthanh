@@ -86,8 +86,8 @@ def test_measurement_api_scale_regions_review_and_isolation(env, drw):
     assert m3["value_real"] == "12.700000" and m3["scale_source"] == f"region:{reg['id']}"
     assert env.post(f"{B}/measurements/{m3['id']}/reject", json={}, headers=a).status_code == 422
     assert env.post(f"{B}/measurements/{m3['id']}/confirm", json={"note": "ok"}, headers=a).json()["status"] == "confirmed"
-    # 4 engineer length measurements (+ the 5C chainage interval candidate derived from "Km12+350"/"Km12+600")
-    assert [x["kind"] for x in env.get(f"{B}/drawings/{d['id']}/measurements", headers=a).json() if x["method"] != "chainage-5C"] == ["length"] * 4
+    # 4 engineer length measurements (+ 5C chainage interval and 5D evidence measurements, which carry their own method)
+    assert [x["kind"] for x in env.get(f"{B}/drawings/{d['id']}/measurements", headers=a).json() if x["method"] == "geometry-5B.1"] == ["length"] * 4
     b = login(env, "admin@b.test", "pw-admin-2")
     assert env.get(f"{B}/measurements/{m3['id']}", headers=b).status_code == 404
     assert env.post(f"{B}/measurements", json={"drawing_id": d["id"], "kind": "length", "geometry_ids": [g["id"]]}, headers=b).status_code == 404

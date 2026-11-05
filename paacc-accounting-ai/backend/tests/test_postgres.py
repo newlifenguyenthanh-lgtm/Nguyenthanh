@@ -163,3 +163,30 @@ def test_associations_on_postgres(pg, monkeypatch):
     assert ok["status"] == "CONFIRMED"
     p = client.get(f"{B}/associations/{top['id']}", headers=a).json()["provenance"]
     assert p["measurement"]["value_real"] == "12.700000" and p["downstream_allowed"] is True
+
+
+def test_components_on_postgres(pg, monkeypatch):
+    from tests import component_helpers as H
+    use_ocr(monkeypatch, FakeOcr())
+    client, _ = pg
+    a = login(client, "admin@pga.test", "pw-admin-1")
+    d = process(client, a, upload(client, a, H.sheet_plan_detail())["id"]).json()
+    for n in (1, 2):
+        client.post(f"{B}/drawings/{d['id']}/pages/{n}/calibration", json={"scale_ratio": 10}, headers=a)
+    run = client.post(f"{B}/drawings/{d['id']}/components/run", headers=a).json()
+    assert run["representations"] == 1 and run["task_status"] == "waiting_approval"
+    cs = client.get(f"{B}/drawings/{d['id']}/components", headers=a).json()
+    plan = next(c for c in cs if c["page_no"] == 1)
+    det = next(c for c in cs if c["page_no"] == 2)
+    assert plan["component_type"] == det["component_type"] == "STEEL_POST" and det["representation_of_id"] == plan["id"]
+    ev = client.get(f"{B}/components/{plan['id']}/evidence", headers=a).json()
+    assert ev["measurements"][0]["value_real"] == "0.0883"
+    assert plan["status"] == "REVIEW_REQUIRED"  # MEDIUM evidence: already in the review queue
+    assert client.post(f"{B}/components/{plan['id']}/review", json={}, headers=a).status_code == 409  # REVIEW_REQUIRED -> itself: invalid
+    assert client.post(f"{B}/components/{plan['id']}/confirm", json={}, headers=a).json()["status"] == "CONFIRMED"
+    [b] = client.get(f"{B}/drawings/{d['id']}/component-boq-candidates", headers=a).json()
+    assert b["approval_status"] == "NOT_APPROVED" and b["measurement_id"] is None  # count of a single post: not measured, 5E decides
+    other = login(client, "admin@pgb.test", "pw-admin-2")
+    assert client.get(f"{B}/components/{plan['id']}", headers=other).status_code == 404
+    assert [h["action"] for h in client.get(f"{B}/components/{plan['id']}/history", headers=a).json()] == \
+        ["confirm", "prepare_boq_candidate"]

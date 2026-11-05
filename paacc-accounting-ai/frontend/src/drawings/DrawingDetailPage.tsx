@@ -2,13 +2,15 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api";
 import AssociationPanel from "./AssociationPanel";
+import ComponentPanel from "./ComponentPanel";
 import GeometryPanel from "./GeometryPanel";
 import PageViewer, { KIND_COLOR, type Link as AssocLink, type Tag } from "./PageViewer";
-import { ASSOC_COLOR, CAL_STATUS, DISCIPLINE, FINDING_VI, FLAG_VI, ITEM_KIND, PAGE_KIND, REL_VI, STATUS_VI, VIEW, pct } from "./labels";
-import type { Association, DrawingDetail, Finding, GeometryPrim, Item, Page, TextBlock } from "./types";
+import { ASSOC_COLOR, CAL_STATUS, COMP_COLOR, DISCIPLINE, FINDING_VI, FLAG_VI, ITEM_KIND, PAGE_KIND, REL_VI, STATUS_VI, VIEW, pct } from "./labels";
+import type { Association, Component, DrawingDetail, Finding, GeometryPrim, Item, Page, TextBlock } from "./types";
 
-type Layer = "text" | "links" | "measures" | "conflicts";
-const LAYERS: [Layer, string][] = [["text", "Chữ"], ["links", "Liên kết"], ["measures", "Phép đo"], ["conflicts", "Xung đột"]];
+type Layer = "text" | "links" | "measures" | "components" | "conflicts";
+const LAYERS: [Layer, string][] = [["text", "Chữ"], ["links", "Liên kết"], ["measures", "Phép đo"], ["components", "Cấu kiện"],
+  ["conflicts", "Xung đột"]];
 
 function centre(g: GeometryPrim): [number, number] {
   const [x0, y0, x1, y1] = g.bbox;
@@ -97,7 +99,11 @@ export default function DrawingDetailPage() {
   const [assocs, setAssocs] = useState<Association[]>([]);
   const [selText, setSelText] = useState<string>();
   const [picking, setPicking] = useState<{ id: string; reason: string }>();
-  const need5c = layers.length > 0;
+  const need5c = layers.some((l) => l !== "components");
+  const [compList, setCompList] = useState<Component[]>([]);
+  const [selComp, setSelComp] = useState<string>();
+  const [srcGeo, setSrcGeo] = useState<string[]>([]);
+  const needComps = layers.includes("components") || layers.includes("conflicts");
   const load = useCallback(() => api<DrawingDetail>(`/drawings/${id}`).then(setD).catch((e) => setErr(errorText(e))), [id]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -109,6 +115,10 @@ export default function DrawingDetailPage() {
     api<TextBlock[]>(`/drawings/${id}/pages/${pageNo}/text-blocks`).then(setBlocks).catch((e) => setErr(errorText(e)));
     api<Association[]>(`/drawings/${id}/pages/${pageNo}/associations`).then(setAssocs).catch((e) => setErr(errorText(e)));
   }, [need5c, d, id, pageNo]);
+  useEffect(() => {
+    if (!needComps || !d) { setCompList([]); return; }
+    api<Component[]>(`/drawings/${id}/components?page=${pageNo}`).then(setCompList).catch((e) => setErr(errorText(e)));
+  }, [needComps, d, id, pageNo]);
   const needGeo = showGeo || layers.length > 0;
   useEffect(() => {
     if (!needGeo || !d) { setGeo([]); return; }
@@ -137,14 +147,15 @@ export default function DrawingDetailPage() {
       if (a.status === "CONFLICT" && layers.includes("conflicts")) tags.push({ key: a.id, at: centre(g), color: ASSOC_COLOR.CONFLICT, text: `≠ ${a.text_value} / ${a.measured_value} m` });
       else if (layers.includes("measures")) tags.push({ key: a.id, at: centre(g), color: "#2b8a3e", text: `${a.measured_value} m` });
     }
-    const highlight = new Set(sel.map((a) => a.geometry_id));
+    const highlight = new Set([...sel.map((a) => a.geometry_id), ...srcGeo]);
+    const comps = layers.includes("components") ? compList : layers.includes("conflicts") ? compList.filter((c) => c.status === "CONFLICT") : [];
     const shownGeo = showGeo ? geo : geo.filter((g) => highlight.has(g.id));
-    return { texts, links, tags, shownGeo, colorOf: (t: TextBlock) => {
+    return { texts, links, tags, shownGeo, comps, colorOf: (t: TextBlock) => {
       if (conflictTexts.has(t.id)) return ASSOC_COLOR.CONFLICT;
       const a = top.get(t.id);
       return a ? ASSOC_COLOR[a.status] ?? "#1f6feb" : "#adb5bd";
     } };
-  }, [geo, blocks, assocs, layers, selText, selGeo, showGeo]);
+  }, [geo, blocks, assocs, layers, selText, selGeo, showGeo, compList, srcGeo]);
   if (err) return <main><p className="error">{err}</p></main>;
   if (!d) return <main><p>Đang tải…</p></main>;
   const toggleLayer = (k: Layer) => setLayers((ls) => (ls.includes(k) ? ls.filter((x) => x !== k) : [...ls, k]));
@@ -178,7 +189,9 @@ export default function DrawingDetailPage() {
           <PageViewer drawingId={d.id} page={page} items={items} selectedId={sel} onSelect={setSel}
             geometry={overlay.shownGeo} selectedGeo={selGeo} onSelectGeo={onGeoClick}
             texts={overlay.texts} textColor={overlay.colorOf} selectedText={selText}
-            onSelectText={(tid) => { setSelText(tid); setSelGeo(undefined); }} links={overlay.links} tags={overlay.tags} />
+            onSelectText={(tid) => { setSelText(tid); setSelGeo(undefined); }} links={overlay.links} tags={overlay.tags}
+            comps={overlay.comps} compColor={(c) => COMP_COLOR[c.status] ?? "#5f3dc4"} selectedComp={selComp}
+            onSelectComp={(cid) => { setSelComp(cid); setSrcGeo([]); }} highlight={srcGeo} />
           <div className="row overlay-toggles" aria-label="Lớp hiển thị">{LAYERS.map(([k, label]) => (
             <label key={k}><input type="checkbox" checked={layers.includes(k)} onChange={() => toggleLayer(k)} />{label}</label>))}
             {picking && <span className="error">Đang chọn hình học mới…</span>}</div>
@@ -195,6 +208,8 @@ export default function DrawingDetailPage() {
             {" · "}Bộ môn: {page.disciplines?.map((x) => `${DISCIPLINE[x.value] ?? x.value} (${x.basis})`).join(", ") || "—"}
             {" · "}Dạng: {page.view_types?.map((x) => VIEW[x.value] ?? x.value).join(", ") || "—"}</p>
           {page.warnings.length > 0 && <p className="error">Cảnh báo: {page.warnings.join(", ")}</p>}
+          {selComp && compList.find((c) => c.id === selComp) && <ComponentPanel comp={compList.find((c) => c.id === selComp)!}
+            onChanged={(c) => setCompList((all) => all.map((x) => (x.id === c.id ? { ...x, ...c } : x)))} onViewSource={setSrcGeo} />}
           {need5c && (selText || selGeo) && <AssociationPanel block={blocks.find((b) => b.id === selText)} geometryId={selText ? undefined : selGeo}
             blocks={blocks} assocs={assocs} picking={picking?.id}
             onPick={(aid, reason) => setPicking(aid ? { id: aid, reason } : undefined)}

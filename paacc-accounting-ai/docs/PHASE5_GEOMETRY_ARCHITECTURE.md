@@ -12,7 +12,8 @@ PDF (bất biến, SHA-256)
  └─ 5B measurement engine (Decimal)  (xong)       app/geometry/{measure,measure_service}.py
  └─ 5C association text ↔ geometry, lý trình (xong; chưa kiểm chứng trên bản vẽ thi công thật)
                                                   app/association/{classify,engine,service}.py
- └─ 5D object recognition (rule-based trước)      app/geometry/objects.py
+ └─ 5D component recognition (rule-based, xong; chưa kiểm chứng bản vẽ thật)
+                                                  app/components/{catalog.json,spatial,symbols,repetition,engine,service}.py
  └─ 5E quantity candidate → BOQ (engine hiện có)  app/boq/generate.py (thêm nguồn "geometry")
  └─ Review → Approval (4 mắt) → Excel (PAACC / company_kl)   (giữ nguyên)
 ```
@@ -94,3 +95,4 @@ drawing (sha256, document_version) → page_no (page_frame) → bbox/region
 - **5A:** xong (vector geometry).
 - **5B:** xong (tối thiểu).
 - **5C:** xong. Còn chờ kiểm chứng trên bản vẽ thi công thật, vì bộ dữ liệu hiện tại chỉ có báo giá PDF và workbook.
+- **5D:** xong. Còn chờ kiểm chứng trên bản vẽ thi công thật. Xem `PHASE5D_COMPONENT_RECOGNITION.md`.

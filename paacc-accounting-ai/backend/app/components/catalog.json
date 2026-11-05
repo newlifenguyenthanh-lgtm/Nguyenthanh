@@ -1,0 +1,1316 @@
+{
+ "version": 1,
+ "note": "Default component taxonomy + recognition rules + symbol patterns (DATA, not engine code). Seeded per company into component_types / component_symbol_patterns; companies may add types/patterns without code changes.",
+ "default_weights": {
+  "text": 0.3,
+  "geometry": 0.15,
+  "measurement": 0.15,
+  "symbol": 0.15,
+  "spatial": 0.1,
+  "repetition": 0.05,
+  "semantic": 0.1
+ },
+ "discipline_groups": {
+  "ATGT": [
+   "traffic"
+  ],
+  "HA_TANG": [
+   "infrastructure",
+   "traffic"
+  ],
+  "KET_CAU": [
+   "structural"
+  ],
+  "THEP": [
+   "structural",
+   "traffic"
+  ],
+  "GENERIC": []
+ },
+ "default_exclude_text_types": [
+  "NOTE",
+  "TABLE",
+  "TITLE",
+  "SCALE",
+  "REVISION",
+  "UNKNOWN",
+  "CHAINAGE",
+  "DETAIL_REFERENCE"
+ ],
+ "types": [
+  {
+   "code": "GUARDRAIL",
+   "group": "ATGT",
+   "name_vi": "Hộ lan",
+   "parent": null,
+   "family": "barrier",
+   "rule": {
+    "keywords": [
+     "HỘ LAN",
+     "GUARDRAIL"
+    ],
+    "regex": [],
+    "spec_categories": [
+     "guardrail_type"
+    ],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "length",
+    "compare": "length"
+   },
+   "boq": {
+    "description_vi": "Hộ lan",
+    "unit": "m",
+    "measurement_kind": "length"
+   },
+   "member_type": "STEEL_POST"
+  },
+  {
+   "code": "CRASH_BARRIER",
+   "group": "ATGT",
+   "name_vi": "Tường/dải chắn",
+   "parent": "GUARDRAIL",
+   "family": "barrier",
+   "rule": {
+    "keywords": [
+     "TƯỜNG CHẮN XE",
+     "DẢI PHÂN CÁCH CỨNG",
+     "CRASH BARRIER"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "length",
+    "compare": "length"
+   },
+   "boq": {
+    "description_vi": "Tường/dải chắn",
+    "unit": "m",
+    "measurement_kind": "length"
+   },
+   "member_type": null
+  },
+  {
+   "code": "CORRUGATED_SHEET",
+   "group": "ATGT",
+   "name_vi": "Tôn lượn sóng",
+   "parent": "GUARDRAIL",
+   "family": "barrier",
+   "rule": {
+    "keywords": [
+     "TÔN LƯỢN SÓNG",
+     "TÔN SÓNG",
+     "W-BEAM"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "length",
+    "compare": "length"
+   },
+   "boq": {
+    "description_vi": "Hộ lan tôn lượn sóng",
+    "unit": "m",
+    "measurement_kind": "length"
+   },
+   "member_type": "STEEL_POST"
+  },
+  {
+   "code": "FENCE",
+   "group": "ATGT",
+   "name_vi": "Hàng rào",
+   "parent": null,
+   "family": "fence",
+   "rule": {
+    "keywords": [
+     "HÀNG RÀO",
+     "FENCE",
+     "LƯỚI B40"
+    ],
+    "regex": [],
+    "spec_categories": [
+     "fence_type"
+    ],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "length",
+    "compare": "length"
+   },
+   "boq": {
+    "description_vi": "Hàng rào thép",
+    "unit": "m",
+    "measurement_kind": "length"
+   },
+   "member_type": "FENCE_POST"
+  },
+  {
+   "code": "FENCE_POST",
+   "group": "ATGT",
+   "name_vi": "Trụ hàng rào",
+   "parent": null,
+   "family": "post",
+   "rule": {
+    "keywords": [
+     "TRỤ RÀO",
+     "CỘT RÀO",
+     "TRỤ HÀNG RÀO"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [
+     "round"
+    ],
+    "geometry_kinds": [
+     "circle",
+     "rect"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "count",
+    "compare": null
+   },
+   "boq": {
+    "description_vi": "Trụ hàng rào",
+    "unit": "trụ",
+    "measurement_kind": "count"
+   },
+   "member_type": null
+  },
+  {
+   "code": "STEEL_POST",
+   "group": "ATGT",
+   "name_vi": "Trụ thép",
+   "parent": null,
+   "family": "post",
+   "rule": {
+    "keywords": [
+     "TRỤ THÉP",
+     "TRỤ ĐỠ",
+     "STEEL POST"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [
+     "round"
+    ],
+    "geometry_kinds": [
+     "circle",
+     "line"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "diameter",
+    "compare": "diameter"
+   },
+   "boq": {
+    "description_vi": "Trụ thép",
+    "unit": "trụ",
+    "measurement_kind": "count"
+   },
+   "member_type": null
+  },
+  {
+   "code": "ROAD_SIGN",
+   "group": "ATGT",
+   "name_vi": "Biển báo",
+   "parent": null,
+   "family": "sign",
+   "rule": {
+    "keywords": [
+     "BIỂN BÁO",
+     "BIỂN CHỈ DẪN"
+    ],
+    "regex": [],
+    "spec_categories": [
+     "traffic_sign"
+    ],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "circle",
+     "polygon",
+     "rect"
+    ],
+    "geometry_optional": true,
+    "measurement_kind": "count",
+    "compare": null
+   },
+   "boq": {
+    "description_vi": "Biển báo",
+    "unit": "cái",
+    "measurement_kind": "count"
+   },
+   "member_type": null
+  },
+  {
+   "code": "SIGN_POST",
+   "group": "ATGT",
+   "name_vi": "Cột biển báo",
+   "parent": null,
+   "family": "post",
+   "rule": {
+    "keywords": [
+     "CỘT BIỂN",
+     "TRỤ BIỂN"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [
+     "round"
+    ],
+    "geometry_kinds": [
+     "circle",
+     "line"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "count",
+    "compare": null
+   },
+   "boq": {
+    "description_vi": "Cột biển báo",
+    "unit": "cột",
+    "measurement_kind": "count"
+   },
+   "member_type": null
+  },
+  {
+   "code": "DELINEATOR",
+   "group": "ATGT",
+   "name_vi": "Cọc tiêu",
+   "parent": null,
+   "family": "marker",
+   "rule": {
+    "keywords": [
+     "CỌC TIÊU",
+     "DELINEATOR"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "circle",
+     "rect"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "count",
+    "compare": null
+   },
+   "boq": {
+    "description_vi": "Cọc tiêu",
+    "unit": "cọc",
+    "measurement_kind": "count"
+   },
+   "member_type": null
+  },
+  {
+   "code": "REFLECTOR",
+   "group": "ATGT",
+   "name_vi": "Tiêu phản quang",
+   "parent": null,
+   "family": "marker",
+   "rule": {
+    "keywords": [
+     "TIÊU PHẢN QUANG",
+     "MẮT PHẢN QUANG",
+     "REFLECTOR"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "circle",
+     "rect",
+     "polygon"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "count",
+    "compare": null
+   },
+   "boq": {
+    "description_vi": "Tiêu phản quang",
+    "unit": "cái",
+    "measurement_kind": "count"
+   },
+   "member_type": null
+  },
+  {
+   "code": "BOLLARD",
+   "group": "ATGT",
+   "name_vi": "Cọc chắn xe",
+   "parent": null,
+   "family": "post",
+   "rule": {
+    "keywords": [
+     "CỌC CHẮN XE",
+     "BOLLARD"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "circle",
+     "rect"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "count",
+    "compare": null
+   },
+   "boq": {
+    "description_vi": "Cọc chắn xe",
+    "unit": "cọc",
+    "measurement_kind": "count"
+   },
+   "member_type": null
+  },
+  {
+   "code": "DRAINAGE_GRATING",
+   "group": "ATGT",
+   "name_vi": "Song chắn rác / tấm ghi",
+   "parent": null,
+   "family": "grating",
+   "rule": {
+    "keywords": [
+     "SONG CHẮN RÁC",
+     "TẤM GHI",
+     "GRATING"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "rect",
+     "polygon"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "count",
+    "compare": null
+   },
+   "boq": {
+    "description_vi": "Song chắn rác",
+    "unit": "cái",
+    "measurement_kind": "count"
+   },
+   "member_type": null
+  },
+  {
+   "code": "PIPE",
+   "group": "HA_TANG",
+   "name_vi": "Đường ống",
+   "parent": null,
+   "family": "pipe",
+   "rule": {
+    "keywords": [
+     "ĐƯỜNG ỐNG",
+     "ỐNG CẤP NƯỚC",
+     "ỐNG THOÁT NƯỚC",
+     "PIPE"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "length",
+    "compare": "length"
+   },
+   "boq": {
+    "description_vi": "Đường ống",
+    "unit": "m",
+    "measurement_kind": "length"
+   },
+   "member_type": null
+  },
+  {
+   "code": "CULVERT",
+   "group": "HA_TANG",
+   "name_vi": "Cống",
+   "parent": null,
+   "family": "culvert",
+   "rule": {
+    "keywords": [
+     "CỐNG TRÒN",
+     "CỐNG HỘP",
+     "CULVERT"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve",
+     "rect"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "length",
+    "compare": "length"
+   },
+   "boq": {
+    "description_vi": "Cống",
+    "unit": "m",
+    "measurement_kind": "length"
+   },
+   "member_type": null
+  },
+  {
+   "code": "MANHOLE",
+   "group": "HA_TANG",
+   "name_vi": "Hố ga",
+   "parent": null,
+   "family": "pit",
+   "rule": {
+    "keywords": [
+     "HỐ GA",
+     "MANHOLE"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "rect",
+     "circle",
+     "polygon"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "count",
+    "compare": null
+   },
+   "boq": {
+    "description_vi": "Hố ga",
+    "unit": "cái",
+    "measurement_kind": "count"
+   },
+   "member_type": null
+  },
+  {
+   "code": "DRAIN",
+   "group": "HA_TANG",
+   "name_vi": "Rãnh/mương",
+   "parent": null,
+   "family": "drain",
+   "rule": {
+    "keywords": [
+     "RÃNH THOÁT NƯỚC",
+     "MƯƠNG",
+     "DRAIN"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "length",
+    "compare": "length"
+   },
+   "boq": {
+    "description_vi": "Rãnh thoát nước",
+    "unit": "m",
+    "measurement_kind": "length"
+   },
+   "member_type": null
+  },
+  {
+   "code": "CONCRETE_CHANNEL",
+   "group": "HA_TANG",
+   "name_vi": "Rãnh bê tông",
+   "parent": "DRAIN",
+   "family": "drain",
+   "rule": {
+    "keywords": [
+     "RÃNH BÊ TÔNG",
+     "MƯƠNG BÊ TÔNG"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "length",
+    "compare": "length"
+   },
+   "boq": {
+    "description_vi": "Rãnh bê tông",
+    "unit": "m",
+    "measurement_kind": "length"
+   },
+   "member_type": null
+  },
+  {
+   "code": "ROAD_SURFACE",
+   "group": "HA_TANG",
+   "name_vi": "Mặt đường",
+   "parent": null,
+   "family": "surface",
+   "rule": {
+    "keywords": [
+     "KẾT CẤU MẶT ĐƯỜNG",
+     "ÁO ĐƯỜNG",
+     "BÊ TÔNG NHỰA"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "polygon",
+     "rect",
+     "fill_region"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "area",
+    "compare": null
+   },
+   "boq": {
+    "description_vi": "Mặt đường",
+    "unit": "m2",
+    "measurement_kind": "area"
+   },
+   "member_type": null
+  },
+  {
+   "code": "KERB",
+   "group": "HA_TANG",
+   "name_vi": "Bó vỉa",
+   "parent": null,
+   "family": "kerb",
+   "rule": {
+    "keywords": [
+     "BÓ VỈA",
+     "KERB",
+     "CURB"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "length",
+    "compare": "length"
+   },
+   "boq": {
+    "description_vi": "Bó vỉa",
+    "unit": "m",
+    "measurement_kind": "length"
+   },
+   "member_type": null
+  },
+  {
+   "code": "SIDEWALK",
+   "group": "HA_TANG",
+   "name_vi": "Vỉa hè",
+   "parent": null,
+   "family": "surface",
+   "rule": {
+    "keywords": [
+     "VỈA HÈ",
+     "SIDEWALK"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "polygon",
+     "rect",
+     "fill_region"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "area",
+    "compare": null
+   },
+   "boq": {
+    "description_vi": "Vỉa hè",
+    "unit": "m2",
+    "measurement_kind": "area"
+   },
+   "member_type": null
+  },
+  {
+   "code": "COLUMN",
+   "group": "KET_CAU",
+   "name_vi": "Cột",
+   "parent": null,
+   "family": "column",
+   "rule": {
+    "keywords": [
+     "CỘT BTCT",
+     "CỘT BÊ TÔNG",
+     "COLUMN"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "rect",
+     "polygon",
+     "circle"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "count",
+    "compare": null
+   },
+   "boq": {
+    "description_vi": "Cột BTCT",
+    "unit": "cái",
+    "measurement_kind": "count"
+   },
+   "member_type": null
+  },
+  {
+   "code": "BEAM",
+   "group": "KET_CAU",
+   "name_vi": "Dầm",
+   "parent": null,
+   "family": "beam",
+   "rule": {
+    "keywords": [
+     "DẦM BTCT",
+     "DẦM BÊ TÔNG",
+     "BEAM"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve",
+     "rect"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "length",
+    "compare": "length"
+   },
+   "boq": {
+    "description_vi": "Dầm",
+    "unit": "m",
+    "measurement_kind": "length"
+   },
+   "member_type": null
+  },
+  {
+   "code": "SLAB",
+   "group": "KET_CAU",
+   "name_vi": "Sàn/bản",
+   "parent": null,
+   "family": "slab",
+   "rule": {
+    "keywords": [
+     "SÀN BTCT",
+     "BẢN MẶT CẦU",
+     "SLAB"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "polygon",
+     "rect",
+     "fill_region"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "area",
+    "compare": null
+   },
+   "boq": {
+    "description_vi": "Sàn",
+    "unit": "m2",
+    "measurement_kind": "area"
+   },
+   "member_type": null
+  },
+  {
+   "code": "FOOTING",
+   "group": "KET_CAU",
+   "name_vi": "Móng",
+   "parent": null,
+   "family": "footing",
+   "rule": {
+    "keywords": [
+     "MÓNG ĐƠN",
+     "MÓNG BĂNG",
+     "MÓNG TRỤ",
+     "FOOTING"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "rect",
+     "polygon"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "count",
+    "compare": null
+   },
+   "boq": {
+    "description_vi": "Móng",
+    "unit": "cái",
+    "measurement_kind": "count"
+   },
+   "member_type": null
+  },
+  {
+   "code": "WALL",
+   "group": "KET_CAU",
+   "name_vi": "Tường",
+   "parent": null,
+   "family": "wall",
+   "rule": {
+    "keywords": [
+     "TƯỜNG XÂY",
+     "TƯỜNG BTCT",
+     "WALL"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve",
+     "rect"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "length",
+    "compare": "length"
+   },
+   "boq": {
+    "description_vi": "Tường",
+    "unit": "m",
+    "measurement_kind": "length"
+   },
+   "member_type": null
+  },
+  {
+   "code": "STEEL_MEMBER",
+   "group": "KET_CAU",
+   "name_vi": "Cấu kiện thép",
+   "parent": null,
+   "family": "steel",
+   "rule": {
+    "keywords": [
+     "CẤU KIỆN THÉP",
+     "STEEL MEMBER"
+    ],
+    "regex": [],
+    "spec_categories": [
+     "steel_profile"
+    ],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve",
+     "rect"
+    ],
+    "geometry_optional": true,
+    "measurement_kind": "length",
+    "compare": "length"
+   },
+   "boq": null,
+   "member_type": null
+  },
+  {
+   "code": "PLATE",
+   "group": "THEP",
+   "name_vi": "Bản thép",
+   "parent": null,
+   "family": "plate",
+   "rule": {
+    "keywords": [
+     "BẢN MÃ",
+     "BẢN THÉP",
+     "THÉP TẤM",
+     "PLATE"
+    ],
+    "regex": [],
+    "spec_categories": [
+     "plate"
+    ],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "rect",
+     "polygon"
+    ],
+    "geometry_optional": true,
+    "measurement_kind": null,
+    "compare": null,
+    "weights": {
+     "text": 0.6,
+     "geometry": 0.1,
+     "spatial": 0.1,
+     "semantic": 0.2
+    }
+   },
+   "boq": null,
+   "member_type": null
+  },
+  {
+   "code": "BOLT",
+   "group": "KET_CAU",
+   "name_vi": "Bu lông",
+   "parent": null,
+   "family": "bolt",
+   "rule": {
+    "keywords": [
+     "BU LÔNG",
+     "BULÔNG",
+     "BOLT"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [
+     "bolt"
+    ],
+    "geometry_kinds": [
+     "circle"
+    ],
+    "geometry_optional": true,
+    "measurement_kind": null,
+    "compare": null,
+    "weights": {
+     "text": 0.6,
+     "geometry": 0.1,
+     "spatial": 0.1,
+     "semantic": 0.2
+    },
+    "dimension_score": 0.8
+   },
+   "boq": null,
+   "member_type": null
+  },
+  {
+   "code": "BRACKET",
+   "group": "KET_CAU",
+   "name_vi": "Giá đỡ / cánh tay",
+   "parent": null,
+   "family": "bracket",
+   "rule": {
+    "keywords": [
+     "GIÁ ĐỠ",
+     "BRACKET",
+     "CẦN VƯƠN"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve",
+     "polygon"
+    ],
+    "geometry_optional": true,
+    "measurement_kind": null,
+    "compare": null
+   },
+   "boq": null,
+   "member_type": null
+  },
+  {
+   "code": "ROUND_PIPE",
+   "group": "THEP",
+   "name_vi": "Ống thép tròn",
+   "parent": null,
+   "family": "steel",
+   "rule": {
+    "keywords": [
+     "ỐNG THÉP",
+     "STEEL PIPE"
+    ],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [
+     "round"
+    ],
+    "geometry_kinds": [
+     "circle",
+     "line",
+     "polyline",
+     "curve"
+    ],
+    "geometry_optional": true,
+    "measurement_kind": "length",
+    "compare": null
+   },
+   "boq": null,
+   "member_type": null
+  },
+  {
+   "code": "RECTANGULAR_TUBE",
+   "group": "THEP",
+   "name_vi": "Thép hộp",
+   "parent": null,
+   "family": "steel",
+   "rule": {
+    "keywords": [
+     "THÉP HỘP"
+    ],
+    "regex": [],
+    "spec_categories": [
+     "steel_box"
+    ],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve",
+     "rect"
+    ],
+    "geometry_optional": true,
+    "measurement_kind": "length",
+    "compare": null
+   },
+   "boq": null,
+   "member_type": null
+  },
+  {
+   "code": "H_BEAM",
+   "group": "THEP",
+   "name_vi": "Thép H",
+   "parent": null,
+   "family": "steel",
+   "rule": {
+    "keywords": [
+     "THÉP H"
+    ],
+    "regex": [
+     "\\bH\\s?\\d{2,4}(?:X\\d+)*\\b"
+    ],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve",
+     "rect"
+    ],
+    "geometry_optional": true,
+    "measurement_kind": "length",
+    "compare": null
+   },
+   "boq": null,
+   "member_type": null
+  },
+  {
+   "code": "I_BEAM",
+   "group": "THEP",
+   "name_vi": "Thép I",
+   "parent": null,
+   "family": "steel",
+   "rule": {
+    "keywords": [
+     "THÉP I"
+    ],
+    "regex": [
+     "\\bI\\s?\\d{2,4}(?:X\\d+)*\\b"
+    ],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve",
+     "rect"
+    ],
+    "geometry_optional": true,
+    "measurement_kind": "length",
+    "compare": null
+   },
+   "boq": null,
+   "member_type": null
+  },
+  {
+   "code": "ANGLE",
+   "group": "THEP",
+   "name_vi": "Thép góc",
+   "parent": null,
+   "family": "steel",
+   "rule": {
+    "keywords": [
+     "THÉP GÓC",
+     "THÉP V"
+    ],
+    "regex": [
+     "\\b[LV]\\d{2,3}X\\d{2,3}(?:X\\d{1,2})?\\b"
+    ],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve"
+    ],
+    "geometry_optional": true,
+    "measurement_kind": "length",
+    "compare": null
+   },
+   "boq": null,
+   "member_type": null
+  },
+  {
+   "code": "CHANNEL",
+   "group": "THEP",
+   "name_vi": "Thép U/C",
+   "parent": null,
+   "family": "steel",
+   "rule": {
+    "keywords": [
+     "THÉP U",
+     "THÉP C"
+    ],
+    "regex": [
+     "\\b[UC]\\d{2,3}(?:X\\d+)*\\b"
+    ],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve"
+    ],
+    "geometry_optional": true,
+    "measurement_kind": "length",
+    "compare": null
+   },
+   "boq": null,
+   "member_type": null
+  },
+  {
+   "code": "REBAR",
+   "group": "THEP",
+   "name_vi": "Cốt thép",
+   "parent": null,
+   "family": "rebar",
+   "rule": {
+    "keywords": [
+     "CỐT THÉP",
+     "THÉP CB"
+    ],
+    "regex": [],
+    "spec_categories": [
+     "rebar_grade"
+    ],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve"
+    ],
+    "geometry_optional": true,
+    "measurement_kind": null,
+    "compare": null,
+    "weights": {
+     "text": 0.6,
+     "geometry": 0.1,
+     "spatial": 0.1,
+     "semantic": 0.2
+    }
+   },
+   "boq": null,
+   "member_type": null
+  },
+  {
+   "code": "LINEAR_COMPONENT",
+   "group": "GENERIC",
+   "name_vi": "Cấu kiện tuyến tính (chưa rõ loại)",
+   "parent": null,
+   "family": "generic",
+   "rule": {
+    "keywords": [],
+    "regex": [],
+    "spec_categories": [],
+    "dimension_types": [],
+    "geometry_kinds": [
+     "line",
+     "polyline",
+     "curve"
+    ],
+    "geometry_optional": false,
+    "measurement_kind": "length",
+    "compare": "length"
+   },
+   "boq": null,
+   "member_type": null
+  }
+ ],
+ "symbol_patterns": [
+  {
+   "component_type": "STEEL_POST",
+   "pattern_type": "circle_with_stem",
+   "parameters": {
+    "min_radius_pt": 1.0,
+    "max_radius_pt": 40.0,
+    "min_stem_pt": 5.0,
+    "orientation": "vertical",
+    "repeatable": true
+   },
+   "tolerance": {
+    "touch_pt": 2.0,
+    "angle_deg": 10.0
+   },
+   "confidence_weight": 1.0
+  },
+  {
+   "component_type": "STEEL_POST",
+   "pattern_type": "circle",
+   "parameters": {
+    "min_radius_pt": 1.0,
+    "max_radius_pt": 20.0,
+    "repeatable": true
+   },
+   "tolerance": {
+    "size_rel": 0.1
+   },
+   "confidence_weight": 0.6
+  },
+  {
+   "component_type": "ROUND_PIPE",
+   "pattern_type": "circle",
+   "parameters": {
+    "min_radius_pt": 1.0,
+    "max_radius_pt": 40.0
+   },
+   "tolerance": {
+    "size_rel": 0.1
+   },
+   "confidence_weight": 0.5
+  },
+  {
+   "component_type": "BOLT",
+   "pattern_type": "circle",
+   "parameters": {
+    "min_radius_pt": 0.5,
+    "max_radius_pt": 6.0
+   },
+   "tolerance": {
+    "size_rel": 0.1
+   },
+   "confidence_weight": 0.5
+  },
+  {
+   "component_type": "MANHOLE",
+   "pattern_type": "rectangle",
+   "parameters": {
+    "min_side_pt": 4.0,
+    "max_side_pt": 60.0,
+    "repeatable": true
+   },
+   "tolerance": {
+    "size_rel": 0.1,
+    "angle_deg": 3.0
+   },
+   "confidence_weight": 0.5
+  },
+  {
+   "component_type": "DRAINAGE_GRATING",
+   "pattern_type": "parallel_lines",
+   "parameters": {
+    "min_gap_pt": 1.0,
+    "max_gap_pt": 6.0,
+    "min_overlap": 0.6
+   },
+   "tolerance": {
+    "angle_deg": 3.0
+   },
+   "confidence_weight": 0.4
+  },
+  {
+   "component_type": "KERB",
+   "pattern_type": "parallel_lines",
+   "parameters": {
+    "min_gap_pt": 2.0,
+    "max_gap_pt": 20.0,
+    "min_overlap": 0.6
+   },
+   "tolerance": {
+    "angle_deg": 3.0
+   },
+   "confidence_weight": 0.4
+  },
+  {
+   "component_type": "ROAD_SURFACE",
+   "pattern_type": "filled_region",
+   "parameters": {
+    "min_area_pt2": 400.0
+   },
+   "tolerance": {},
+   "confidence_weight": 0.5
+  },
+  {
+   "component_type": "BOLLARD",
+   "pattern_type": "cross",
+   "parameters": {
+    "min_arm_pt": 2.0,
+    "max_arm_pt": 20.0
+   },
+   "tolerance": {
+    "angle_deg": 10.0,
+    "centre_rel": 0.2
+   },
+   "confidence_weight": 0.3
+  },
+  {
+   "component_type": null,
+   "pattern_type": "leader",
+   "parameters": {
+    "max_text_gap_pt": 4.0,
+    "max_target_gap_pt": 3.0
+   },
+   "tolerance": {},
+   "confidence_weight": 1.0
+  },
+  {
+   "component_type": null,
+   "pattern_type": "arrow",
+   "parameters": {
+    "max_size_pt": 8.0
+   },
+   "tolerance": {},
+   "confidence_weight": 0.5
+  },
+  {
+   "component_type": null,
+   "pattern_type": "line",
+   "parameters": {
+    "min_length_pt": 5.0
+   },
+   "tolerance": {},
+   "confidence_weight": 0.2
+  }
+ ]
+}

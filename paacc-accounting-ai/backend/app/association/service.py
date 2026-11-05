@@ -102,7 +102,14 @@ def _textb(b: DrawingTextBlock) -> E.TextB:
 def run(db: Session, d: Drawing, user: User | None = None) -> dict:
     build_text_blocks(db, d)
     # keep every engineer-made or engineer-decided association; drop only open rule candidates
-    db.execute(delete(A).where(A.drawing_id == d.id, A.origin == "rule", A.status.in_(OPEN), A.decided_by.is_(None)))
+    # 5D candidates are derived from these associations: drop the open, never-reviewed ones first; associations that an
+    # engineer-reviewed component relies on are kept (its evidence must not disappear underneath it)
+    from app.components.service import _cleanup as drop_open_components
+    from app.models import ComponentSource
+    drop_open_components(db, d)
+    pinned = set(db.scalars(select(ComponentSource.association_id).where(ComponentSource.association_id.is_not(None))))
+    db.execute(delete(A).where(A.drawing_id == d.id, A.origin == "rule", A.status.in_(OPEN), A.decided_by.is_(None),
+                               A.id.not_in(pinned) if pinned else True))
     db.flush()
     # chainage intervals are derived from rule candidates: drop the undecided ones nothing references any more
     used = set(db.scalars(select(A.measurement_id).where(A.drawing_id == d.id, A.measurement_id.is_not(None))))

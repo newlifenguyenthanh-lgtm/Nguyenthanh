@@ -3,7 +3,7 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import JSON, Date, DateTime, ForeignKey, Numeric, String, Uuid, func
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Numeric, String, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 Money = Numeric(20, 2)
@@ -459,4 +459,143 @@ class TextGeometryAssociation(Base):
     history: Mapped[list | None] = mapped_column(JSON)
     decided_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
     decided_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# ---------------------------------------------------------------- Phase 5D: component recognition
+class ComponentType(Base):
+    """Extensible taxonomy (per company; seeded from app/components/catalog.json). rule = recognition rule DATA."""
+    __tablename__ = "component_types"
+    __table_args__ = (UniqueConstraint("company_id", "code", name="uq_component_types_company_code"),)
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    code: Mapped[str] = mapped_column(String(48), index=True)
+    group_code: Mapped[str] = mapped_column(String(24))  # ATGT | HA_TANG | KET_CAU | THEP | GENERIC
+    name_vi: Mapped[str] = mapped_column(String(255))
+    parent_code: Mapped[str | None] = mapped_column(String(48))  # is-a (CORRUGATED_SHEET is a GUARDRAIL)
+    family: Mapped[str] = mapped_column(String(48))
+    member_type: Mapped[str | None] = mapped_column(String(48))  # FENCE -> FENCE_POST
+    rule: Mapped[dict] = mapped_column(JSON)
+    boq: Mapped[dict | None] = mapped_column(JSON)
+    active: Mapped[bool] = mapped_column(default=True)
+    source: Mapped[str] = mapped_column(String(16), default="catalog")  # catalog | company
+    catalog_version: Mapped[int] = mapped_column(default=1)
+    updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ComponentSymbolPattern(Base):
+    __tablename__ = "component_symbol_patterns"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    component_type: Mapped[str | None] = mapped_column(String(48), index=True)  # None = generic (leader, arrow …)
+    pattern_type: Mapped[str] = mapped_column(String(24))
+    parameters: Mapped[dict] = mapped_column(JSON)
+    tolerance: Mapped[dict] = mapped_column(JSON)
+    confidence_weight: Mapped[float] = mapped_column(default=0.5)
+    active: Mapped[bool] = mapped_column(default=True)
+    source: Mapped[str] = mapped_column(String(16), default="catalog")
+
+
+class ComponentRepeatGroup(Base):
+    """A row of repeated symbols (posts …). Count/spacing are 5B measurements referenced here, never copied."""
+    __tablename__ = "component_repeat_groups"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    drawing_id: Mapped[uuid.UUID] = fk("drawings")
+    page_no: Mapped[int]
+    pattern_type: Mapped[str] = mapped_column(String(24))
+    signature: Mapped[dict] = mapped_column(JSON)
+    carrier_geometry_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("geometry_primitives.id"))
+    pattern_status: Mapped[str] = mapped_column(String(24))  # REGULAR | IRREGULAR_PATTERN | OCCLUDED
+    count_measurement_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("measurements.id"))
+    spacing_measurement_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("measurements.id"))
+    start_x: Mapped[float]
+    start_y: Mapped[float]
+    end_x: Mapped[float]
+    end_y: Mapped[float]
+    gaps_pt: Mapped[list | None] = mapped_column(JSON)  # paper-space geometry feature, not a quantity
+    occluders: Mapped[list | None] = mapped_column(JSON)
+
+
+class DrawingComponent(Base):
+    """Phase 5D: a recognised component CANDIDATE with evidence. Quantities live in `measurements` (referenced)."""
+    __tablename__ = "drawing_components"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    project_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("projects.id"), index=True)
+    drawing_id: Mapped[uuid.UUID] = fk("drawings")
+    page_id: Mapped[uuid.UUID] = fk("drawing_pages")
+    page_no: Mapped[int] = mapped_column(index=True)
+    component_type: Mapped[str] = mapped_column(String(48), index=True)
+    component_type_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("component_types.id"))
+    component_subtype: Mapped[str | None] = mapped_column(String(64))
+    name: Mapped[str] = mapped_column(String(255), default="")
+    description: Mapped[str] = mapped_column(String(2000), default="")
+    specification: Mapped[str] = mapped_column(String(1000), default="")
+    material: Mapped[str] = mapped_column(String(255), default="")
+    x0: Mapped[float]
+    y0: Mapped[float]
+    x1: Mapped[float]
+    y1: Mapped[float]
+    centroid_x: Mapped[float]
+    centroid_y: Mapped[float]
+    view_context: Mapped[str] = mapped_column(String(16), default="UNKNOWN")  # PLAN|ELEVATION|SECTION|DETAIL|TABLE|NOTE|UNKNOWN
+    recognition_method: Mapped[str] = mapped_column(String(16), default="rule")  # rule | engineer | ai_inferred
+    recognition_rule: Mapped[str] = mapped_column(String(128), default="")
+    recognition_confidence: Mapped[float] = mapped_column(default=0.0)
+    confidence_band: Mapped[str] = mapped_column(String(8), default="LOW")  # HIGH | MEDIUM | LOW (never = confirmed)
+    text_score: Mapped[float | None]
+    geometry_score: Mapped[float | None]
+    measurement_score: Mapped[float | None]
+    symbol_score: Mapped[float | None]
+    spatial_score: Mapped[float | None]
+    repetition_score: Mapped[float | None]
+    semantic_score: Mapped[float | None]
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    ambiguity_reason: Mapped[str] = mapped_column(String(2000), default="")
+    rejection_reason: Mapped[str] = mapped_column(String(2000), default="")
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("drawing_components.id"))  # system (FENCE) of a member group
+    representation_of_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("drawing_components.id"), index=True)
+    repeat_group_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("component_repeat_groups.id"))
+    dimensions: Mapped[dict | None] = mapped_column(JSON)  # STATED specification dims (D88.3 …), not quantities
+    evidence: Mapped[dict | None] = mapped_column(JSON)  # reasons, relations, alternatives, comparisons
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    reviewed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ComponentSource(Base):
+    """Provenance link component -> text / geometry / measurement / association (queryable, with real FKs)."""
+    __tablename__ = "component_sources"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    component_id: Mapped[uuid.UUID] = fk("drawing_components")
+    source_type: Mapped[str] = mapped_column(String(16))  # text | geometry | measurement | association
+    role: Mapped[str] = mapped_column(String(32), default="")
+    text_block_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("drawing_text_blocks.id"), index=True)
+    geometry_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("geometry_primitives.id"), index=True)
+    measurement_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("measurements.id"), index=True)
+    association_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("text_geometry_associations.id"), index=True)
+
+
+class ComponentRelation(Base):
+    """PART_OF / REPEATED_ALONG / REPRESENTATION_OF / DETAILED_IN / REFERENCES between components."""
+    __tablename__ = "component_relations"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    drawing_id: Mapped[uuid.UUID] = fk("drawings")
+    from_component_id: Mapped[uuid.UUID] = fk("drawing_components")
+    to_component_id: Mapped[uuid.UUID] = fk("drawing_components")
+    relation_type: Mapped[str] = mapped_column(String(24))
+    detail: Mapped[dict | None] = mapped_column(JSON)
+
+
+class ComponentBoqCandidate(Base):
+    """5D -> 5E hand-over: DRAFT, NOT_APPROVED. Quantity = REFERENCE to a measurement; 5E decides."""
+    __tablename__ = "component_boq_candidates"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    drawing_id: Mapped[uuid.UUID] = fk("drawings")
+    component_id: Mapped[uuid.UUID] = fk("drawing_components")
+    description_vi: Mapped[str] = mapped_column(String(500))
+    unit: Mapped[str] = mapped_column(String(16))
+    measurement_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("measurements.id"))
+    status: Mapped[str] = mapped_column(String(16), default="DRAFT")  # DRAFT | WITHDRAWN
+    approval_status: Mapped[str] = mapped_column(String(16), default="NOT_APPROVED")
+    note: Mapped[str] = mapped_column(String(2000), default="")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
     updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

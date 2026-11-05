@@ -233,9 +233,28 @@ def compare(expected: dict, run: dict) -> dict:
                                "false_positives": fps, "auto_confirmed": sum(r["auto_confirmed"] for r in rows),
                                "candidates": sum(r["associations"] for r in rows),
                                "candidates_within_expected": mx is None or sum(r["associations"] for r in rows) <= mx}
+    # ---- component recognition (Phase 5D): invariants only (R1 is a quotation, not a construction drawing)
+    if expected.get("components") is not None and run.get("components") is not None:
+        from app.association.engine import EXCLUDED_TYPES
+        used = {t for c in run["components"] for t in c["source_text_ids"]}
+        cc, fps = Counter(), []
+        for page, blocks in (run.get("text_blocks") or {}).items():
+            for b in blocks:
+                if b["text_type"] in EXCLUDED_TYPES or {"in_table", "in_title_block", "page_number"} & set(b["flags"]):
+                    ok = b["id"] not in used
+                    cc[CORRECT if ok else INCORRECT] += 1
+                    if not ok:
+                        fps.append({"page": page, "text_type": b["text_type"]})
+        total = sum(cc.values())
+        mx = expected["components"].get("max_candidates")
+        n = len(run["components"])
+        out["components"] = {"counts": dict(cc), "total": total, "accuracy_pct": pct(cc, total), "false_positives": fps,
+                             "candidates": n, "auto_confirmed": sum(1 for c in run["components"] if c["status"] == "CONFIRMED"),
+                             "candidates_within_expected": mx is None or n <= mx,
+                             "by_type": dict(Counter(c["component_type"] for c in run["components"]))}
     out["pipeline_steps"] = run.get("steps")
     out["summary"] = {k: {"correct": out[k]["counts"].get(CORRECT, 0), "total": out[k]["total"], "accuracy_pct": out[k]["accuracy_pct"]}
-                      for k in ("metadata", "dimensions", "materials", "boq", "duplicates", "geometry", "associations") if k in out}
+                      for k in ("metadata", "dimensions", "materials", "boq", "duplicates", "geometry", "associations", "components") if k in out}
     out["summary"]["dimension_false_positives"] = len(out["dimensions"]["false_positives"])
     out["summary"]["boq_false_positive_items"] = len(out["boq"]["false_positives"])
     out["summary"]["group_context"] = out["boq"]["group_context"]

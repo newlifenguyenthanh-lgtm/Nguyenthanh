@@ -47,6 +47,18 @@ const assoc = (over: Record<string, unknown>) => ({
   decided_by: null, decided_at: null, ...over });
 const associations = [assoc({}), assoc({ id: "a2", geometry_id: "g2", rank: 2, confidence: 0.4, status: "CANDIDATE", reason: "Phương án thay thế hạng 2",
   text_value: null, measured_value: null, difference: null, measurement_id: null })];
+const comp = (over: Record<string, unknown> = {}) => ({
+  id: "c1", drawing_id: "d1", page_no: 1, component_type: "FENCE", component_subtype: null, name: "Hàng rào", description: "HÀNG RÀO B40",
+  specification: "", material: "", bbox: [100, 100, 400, 100], centroid: [250, 100], view_context: "PLAN", recognition_method: "rule",
+  recognition_rule: "FENCE@catalog", recognition_confidence: 0.949, confidence_band: "HIGH",
+  scores: { text: 1, geometry: 1, measurement: 0.8, symbol: null, spatial: 0.891, repetition: null, semantic: 1, overall: 0.949 },
+  status: "CANDIDATE", ambiguity_reason: "", rejection_reason: "", parent_id: null, representation_of_id: null, repeat_group_id: null,
+  dimensions: {}, source_text_ids: ["t1"], source_geometry_ids: ["g1"], source_measurement_ids: ["m1"], source_association_ids: ["a1"],
+  downstream_allowed: false, ...over });
+const compEvidence = { scores: {}, overall: 0.949, band: "HIGH", rule: "FENCE@catalog",
+  measurements: [{ id: "m1", kind: "length", value_real: "20.461", real_unit: "m", value_paper: "580", paper_unit: "pt" }],
+  detail: { reasons: [], comparisons: [], conflicts: [], ambiguous: [] }, repeat_group: null,
+  relations: [{ from: "c2", to: "c1", type: "PART_OF" }] };
 let calls: { url: string; method: string; body?: string }[];
 beforeEach(() => {
   calls = [];
@@ -63,6 +75,15 @@ beforeEach(() => {
       real_basis: "Tỷ lệ trang chưa được kỹ sư xác nhận – không thể đổi sang kích thước thật" });
     if (url === "/geometry/g1" && method === "PATCH") return json({ ...geometry[0], status: "ambiguous", review_note: "Không rõ" });
     if (url.startsWith("/drawings/d1/items")) return json(items);
+    if (url === "/drawings/d1/components?page=1") return json([comp(), comp({ id: "c9", component_type: "LINEAR_COMPONENT", status: "CONFLICT",
+      bbox: [200, 80, 260, 92] })]);
+    if (url === "/components/c1/evidence") return json(compEvidence);
+    if (url === "/components/c1/review") return json(comp({ status: "REVIEW_REQUIRED" }));
+    if (url === "/components/c1/reject") return JSON.parse(init!.body as string).note ? json(comp({ status: "REJECTED" }))
+      : json({ detail: "Cần ghi lý do loại bỏ" }, 422);
+    if (url === "/components/c1/reclassify") return json(comp({ component_type: "GUARDRAIL", status: "REVIEW_REQUIRED" }));
+    if (url === "/component-types") return json([{ code: "FENCE", group: "ATGT", name_vi: "Hàng rào", active: true },
+      { code: "GUARDRAIL", group: "ATGT", name_vi: "Hộ lan", active: true }]);
     if (url === "/drawings/d1/pages/1/text-blocks") return json(blocks);
     if (url === "/drawings/d1/pages/1/associations") return json(associations);
     if (url === "/associations/a1/reject") return JSON.parse(init!.body as string).note ? json(assoc({ status: "REJECTED" }))
@@ -184,6 +205,60 @@ describe("text ↔ geometry association overlay (Phase 5C)", () => {
     fireEvent.click(screen.getByLabelText("Xung đột"));
     await waitFor(() => expect(container.querySelectorAll("[data-text]").length).toBe(1));
     await waitFor(() => expect(container.querySelector('[data-tag="a1"]')?.textContent).toBe("≠ 13.5 / 12.7 m"));
+  });
+});
+
+describe("component recognition layer (Phase 5D)", () => {
+  const open = async () => {
+    const r = render(<MemoryRouter initialEntries={["/drawings/d1"]}><Routes><Route path="/drawings/:id" element={<DrawingDetailPage />} /></Routes></MemoryRouter>);
+    await screen.findByText(/KC-01 – Rev A/);
+    return r;
+  };
+
+  it("loads components only when the layer is on and shows evidence, sources and referenced measurements", async () => {
+    const { container } = await open();
+    expect(calls.some((c) => c.url.includes("/components"))).toBe(false);
+    fireEvent.click(screen.getByLabelText("Cấu kiện"));
+    await waitFor(() => expect(container.querySelectorAll("[data-comp]").length).toBe(2));
+    expect(container.querySelector('[data-comp="c9"]')!.getAttribute("stroke")).toBe("#eb5757");
+    fireEvent.click(container.querySelector('[data-comp="c1"]')!);
+    const panel = await screen.findByLabelText("Cấu kiện", { selector: "div" });
+    expect(within(panel).getByText(/mức bằng chứng, không phải xác nhận/)).toBeTruthy();
+    expect(within(panel).getByText("Chữ").nextSibling!.textContent).toBe("100%");
+    expect(within(panel).getByText("Ký hiệu").nextSibling!.textContent).toBe("—");
+    expect(await within(panel).findByText(/Phép đo \(5B\): length = 20.461 m/)).toBeTruthy();
+    expect(within(panel).getByText(/Quan hệ: PART_OF/)).toBeTruthy();
+    fireEvent.click(within(panel).getByText("↗ Xem nguồn"));
+    await waitFor(() => expect(container.querySelector('[data-geo="g1"]')!.getAttribute("stroke")).toBe("#e8590c"));
+  });
+
+  it("review actions: start review, reject needs a reason, reclassify sends only editable fields", async () => {
+    const { container } = await open();
+    fireEvent.click(screen.getByLabelText("Cấu kiện"));
+    await waitFor(() => expect(container.querySelector('[data-comp="c1"]')).toBeTruthy());
+    fireEvent.click(container.querySelector('[data-comp="c1"]')!);
+    const panel = await screen.findByLabelText("Cấu kiện", { selector: "div" });
+    fireEvent.click(within(panel).getByText("Bắt đầu review"));
+    await waitFor(() => expect(calls.some((c) => c.url === "/components/c1/review")).toBe(true));
+    fireEvent.click(within(panel).getByText("✕ Loại bỏ"));
+    expect(await within(panel).findByText(/Cần ghi lý do loại bỏ/)).toBeTruthy();
+    fireEvent.click(within(panel).getByText("✎ Phân loại lại"));
+    await waitFor(() => expect(within(panel).getByRole("option", { name: /GUARDRAIL/ })).toBeTruthy());
+    fireEvent.change(within(panel).getByLabelText("Loại cấu kiện"), { target: { value: "GUARDRAIL" } });
+    fireEvent.change(within(panel).getByLabelText("Ghi chú cấu kiện"), { target: { value: "là hộ lan" } });
+    fireEvent.click(within(panel).getByText("Lưu"));
+    await waitFor(() => expect(calls.some((c) => c.url === "/components/c1/reclassify")).toBe(true));
+    const body = JSON.parse(calls.find((c) => c.url === "/components/c1/reclassify")!.body!);
+    expect(body).toEqual({ component_type: "GUARDRAIL", component_subtype: null, description: "HÀNG RÀO B40", specification: "",
+      material: "", reason: "là hộ lan" });
+    expect(Object.keys(body)).not.toContain("quantity");
+  });
+
+  it("the conflict layer alone shows only conflicting components", async () => {
+    const { container } = await open();
+    fireEvent.click(screen.getByLabelText("Xung đột"));
+    await waitFor(() => expect(container.querySelectorAll("[data-comp]").length).toBe(1));
+    expect(container.querySelector('[data-comp="c9"]')).toBeTruthy();
   });
 });
 

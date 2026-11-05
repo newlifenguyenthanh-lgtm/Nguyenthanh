@@ -42,3 +42,21 @@ export interface Association {
   history: { old_geometry_id: string; new_geometry_id: string; reason: string; user: string; timestamp: string }[];
   decided_by: string | null; decided_at: string | null;
 }
+export interface Component {
+  id: string; drawing_id: string; page_no: number; component_type: string; component_subtype: string | null; name: string;
+  description: string; specification: string; material: string; bbox: [number, number, number, number]; centroid: [number, number];
+  view_context: string; recognition_method: string; recognition_rule: string; recognition_confidence: number; confidence_band: string;
+  scores: Record<string, number | null>; status: string; ambiguity_reason: string; rejection_reason: string; parent_id: string | null;
+  representation_of_id: string | null; repeat_group_id: string | null; dimensions: Record<string, unknown>;
+  source_text_ids: string[]; source_geometry_ids: string[]; source_measurement_ids: string[]; source_association_ids: string[];
+  downstream_allowed: boolean;
+}
+export interface ComponentEvidence {
+  scores: Record<string, number | null>; overall: number; band: string; rule: string;
+  measurements: { id: string; kind: string; value_real: string | null; real_unit: string | null; value_paper: string; paper_unit: string }[];
+  detail: { reasons?: string[]; comparisons?: { stated: string; measured: string; difference: string; unit: string }[]; conflicts?: string[];
+    ambiguous?: string[]; alternatives?: { type: string; overall?: number }[] };
+  repeat_group: { pattern_status: string; gaps_pt: number[]; start: number[]; end: number[] } | null;
+  relations: { from: string; to: string; type: string }[];
+}
+export interface ComponentTypeDef { code: string; group: string; name_vi: string; active: boolean }

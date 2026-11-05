@@ -71,9 +71,22 @@
 - Liên kết do kỹ sư tạo hoặc đã quyết định thì giữ nguyên.
 - Downstream (5E) chỉ được dùng `status = CONFIRMED` và `duplicate_of IS NULL`.
 
-## Kế hoạch 5D–5E
+## 5D (đã triển khai, migration `0012_component_recognition`)
+
+7 bảng mới:
+- `component_types`, `component_symbol_patterns` (taxonomy và mẫu là dữ liệu, theo công ty)
+- `drawing_components`
+- `component_sources`
+- `component_relations`
+- `component_repeat_groups`
+- `component_boq_candidates`
+
+Chi tiết ở `PHASE5D_COMPONENT_RECOGNITION.md` §2.
+
+Cấu kiện **không lưu số lượng**: chỉ tham chiếu `measurements`. 5B thêm kind `diameter`.
+
+## Kế hoạch 5E
 
 | Bảng | Nội dung chính |
 |---|---|
-| `recognized_objects` | loại cấu kiện, geometry_ids, thuộc tính (từ association), quy tắc nhận dạng + phiên bản, tier (deterministic / rule / CV / LLM / human), trạng thái |
 | `boq_items.inputs.*` | thêm `source_geometry_ids`, `measurement_id`, `association_ids` (không đổi schema BOQ, chỉ thêm khoá trong JSON) |

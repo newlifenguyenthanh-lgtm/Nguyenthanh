@@ -48,3 +48,9 @@ export const ASSOC_STATUS_VI: Record<string, string> = {
 export const ASSOC_COLOR: Record<string, string> = {
   CANDIDATE: "#1f6feb", REVIEW_REQUIRED: "#f2994a", CONFIRMED: "#27ae60", REJECTED: "#adb5bd", AMBIGUOUS: "#9b51e0", CONFLICT: "#eb5757",
 };
+export const COMP_STATUS_VI: Record<string, string> = { ...ASSOC_STATUS_VI, OCCLUDED: "Có thể bị che" };
+export const COMP_COLOR: Record<string, string> = { ...ASSOC_COLOR, OCCLUDED: "#795548" };
+export const EVIDENCE_VI: [string, string][] = [["text", "Chữ"], ["geometry", "Hình học"], ["measurement", "Phép đo"], ["symbol", "Ký hiệu"],
+  ["spatial", "Quan hệ không gian"], ["repetition", "Lặp lại"], ["semantic", "Ngữ cảnh bản vẽ"]];
+export const VIEW_CTX_VI: Record<string, string> = { PLAN: "Mặt bằng", SECTION: "Mặt cắt", ELEVATION: "Mặt đứng", DETAIL: "Chi tiết",
+  TABLE: "Bảng", NOTE: "Ghi chú", UNKNOWN: "Chưa rõ" };

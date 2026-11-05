@@ -119,6 +119,8 @@ def decide_task(tid: uuid.UUID, decision: str, user: User = Depends(require("ai_
     t = _task(db, tid, user)
     if t.status != "waiting_approval":
         raise HTTPException(409, "Tác vụ không ở trạng thái chờ phê duyệt")
+    if t.entity == "drawing_components":  # 5D: each component is reviewed individually; a task-level approve would skip that
+        raise HTTPException(409, "Tác vụ nhận dạng cấu kiện kết thúc khi kỹ sư review xong từng cấu kiện")
     if t.entity == "boq":  # business approval: delegate so BOQ status, four-eyes rule and audit stay consistent
         from app.boq import workflow as W
         from app.models import Boq

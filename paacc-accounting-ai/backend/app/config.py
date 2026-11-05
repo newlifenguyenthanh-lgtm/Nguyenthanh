@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     assoc_margin: float = 0.10
     assoc_conflict_abs_m: str = "0.01"  # |text - measured| tolerance: max(abs, rel x text)
     assoc_conflict_rel: str = "0.005"
+    # Phase 5D component recognition (bands are evidence strength, never approval)
+    component_on_process: bool = True
+    component_high: float = 0.90
+    component_medium: float = 0.70
+    component_margin: float = 0.10
     ocr_enabled: bool = True
     ocr_dpi: int = 300
     ocr_max_side_px: int = 7000

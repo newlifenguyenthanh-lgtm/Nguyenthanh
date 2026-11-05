@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.agents.registry import AGENTS
 from app.models import (AITask, AuditLog, Boq, Contract, ContractAppendix, Department, DepartmentMember, Document,
-                        Drawing, DrawingPage, GeometryPrimitive, Project, User)
+                        Drawing, DrawingComponent, DrawingPage, GeometryPrimitive, Project, User)
 from app.office.catalog import CATALOG, DEFAULT_DEPARTMENTS, default_layout
 from app.office.status import TaskView, agent_status, combine, utc
 
@@ -70,6 +70,13 @@ def _metrics(db: Session, cid: uuid.UUID, code: str, pending_total: int, now: dt
                  DrawingPage.company_id == cid, DrawingPage.geometry_status == "raster_only"))),
              ("geometry_ambiguous", "Đối tượng hình học cần xem lại", _count(db, select(GeometryPrimitive.id).where(
                  GeometryPrimitive.company_id == cid, GeometryPrimitive.status == "ambiguous")))]
+        comp = lambda *st: _count(db, select(DrawingComponent.id).where(DrawingComponent.company_id == cid,
+                                                                       *(() if not st else (DrawingComponent.status.in_(st),))))
+        m += [("components_detected", "Cấu kiện nhận dạng (ứng viên + đã xử lý)", comp()),
+              ("components_awaiting_review", "Cấu kiện chờ review", comp("CANDIDATE", "REVIEW_REQUIRED")),
+              ("components_confirmed", "Cấu kiện đã xác nhận", comp("CONFIRMED")),
+              ("components_ambiguous", "Cấu kiện mơ hồ / bị che", comp("AMBIGUOUS", "OCCLUDED")),
+              ("components_conflict", "Cấu kiện xung đột", comp("CONFLICT"))]
     elif code == "cad_design":
         m = [("drawing_docs", "Bản vẽ", docs("drawing"))]
     elif code == "estimation":

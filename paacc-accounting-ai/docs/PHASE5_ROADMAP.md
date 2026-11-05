@@ -4,6 +4,7 @@
 - 5A: xong
 - 5B: xong
 - 5C: xong, còn chờ kiểm chứng trên bản vẽ thi công thật
+- 5D: xong, còn chờ kiểm chứng trên bản vẽ thi công thật; 5E chưa bắt đầu (chờ review)
 
 | Milestone | Nội dung | Trạng thái | Phụ thuộc dữ liệu thật |
 |---|---|---|---|
@@ -11,11 +12,13 @@
 | **5A.1** | Phát hiện mã hoá TCVN3/VNI/UTF-8 lỗi trên text trích xuất (không tự sửa; cờ trên mục + cảnh báo trang) | **Xong** | W4: 8/9 phát hiện, 0 dương tính giả trên W1–W3; chuyển đổi chờ bảng mã kiểm chứng |
 | **5B** Measurement engine | `scale_regions` (nhiều tỷ lệ trên 1 trang, do kỹ sư xác nhận); đo chiều dài/polyline/cung/chu vi/diện tích/đếm/khoảng cách/bước lặp bằng Decimal; bảng `measurements`; "có thể bị che" (z-order); xác nhận/sửa số đo trong UI | **Xong** (tối thiểu, xem PHASE5B_MEASUREMENT_ENGINE.md); z-order + UI vẽ vùng tỷ lệ còn lại | cần bản vẽ có tỷ lệ |
 | **5C** Association + lý trình | khối chữ (`drawing_text_blocks`, giữ chữ gốc) + phân loại rule-based; liên kết chữ ↔ hình học (lưới không gian, khoảng cách/hướng/chiếu/ngữ nghĩa, xếp hạng); `AMBIGUOUS` khi điểm thấp hoặc 2 ứng viên sát nhau; `CONFLICT` khi chữ ≠ hình học đo trên tỷ lệ đã xác nhận; khoảng lý trình chỉ khi đúng 2 lý trình gắn cùng một hình học; review + lịch sử đổi hình học; lớp phủ UI | **Xong** (xem PHASE5C_TEXT_GEOMETRY_ASSOCIATION.md). **Chưa kiểm chứng trên bản vẽ thi công thật.** Còn lại: đường gióng, trái/phải tuyến, liên kết chéo trang | W4 (lý trình) + bản vẽ tuyến |
-| 5D Nhận dạng cấu kiện | xem bảng phân tầng bên dưới | Kế hoạch. **Chỉ bắt đầu sau khi review 5C** | cần bản vẽ ATGT/hạ tầng |
-| 5E Geometry → BOQ | ứng viên khối lượng từ phép đo đã xác nhận → `generate.py` (nguồn "geometry"), provenance đầy đủ, trùng lặp mặt bằng/chi tiết, xuất Excel 2 layout | Kế hoạch | đối chiếu W4 |
+| **5D** Nhận dạng cấu kiện | taxonomy mở rộng (dữ liệu, 37 loại), mẫu ký hiệu, 10 quan hệ không gian, dãy lặp (đều / không đều / bị che, không nội suy), gộp biểu diễn trùng, mặt bằng↔chi tiết (`REPRESENTATION_OF` / `DETAILED_IN` / `REFERENCES`), 7 điểm bằng chứng riêng, state machine + review + audit, bàn giao 5E ở dạng nháp (tham chiếu phép đo), AI task + chỉ số văn phòng, lớp UI [Cấu kiện] | **Xong** (xem PHASE5D_COMPONENT_RECOGNITION.md). **Chưa kiểm chứng trên bản vẽ thi công thật (chưa có dữ liệu).** | cần bản vẽ ATGT/hạ tầng |
+| 5E Geometry → BOQ (**chưa bắt đầu, chờ review 5D**) | ứng viên khối lượng từ phép đo đã xác nhận → `generate.py` (nguồn "geometry"), provenance đầy đủ, trùng lặp mặt bằng/chi tiết, xuất Excel 2 layout | Kế hoạch | đối chiếu W4 |
 | 5F Scan / CV | vector hoá raster, dò ký hiệu bằng ML, chỉ khi có dữ liệu huấn luyện có nhãn | Kế hoạch (dài hạn) | bộ dữ liệu có nhãn |
 
 ## Phân tầng nhận dạng cấu kiện (5D)
+
+Đã triển khai tầng 1 (deterministic) và tầng 2 (rule-based). Tầng 5 (Human) là review bắt buộc. Tầng 3 (CV) và tầng 4 (LLM) chưa làm; LLM, nếu sau này có, chỉ được tạo ứng viên `ai_inferred`.
 
 | Cấu kiện | Tầng | Cách làm dự kiến |
 |---|---|---|

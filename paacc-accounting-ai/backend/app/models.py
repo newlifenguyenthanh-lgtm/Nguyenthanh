@@ -357,3 +357,46 @@ class GeometryPrimitive(Base):
     review_note: Mapped[str] = mapped_column(String(2000), default="")
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
     reviewed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ScaleRegion(Base):
+    """Phase 5B: a page area with its own scale (e.g. a 1:20 detail on a 1:100 plan). Only 'confirmed' is used."""
+    __tablename__ = "scale_regions"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    drawing_id: Mapped[uuid.UUID] = fk("drawings")
+    page_no: Mapped[int]
+    x0: Mapped[float]
+    y0: Mapped[float]
+    x1: Mapped[float]
+    y1: Mapped[float]
+    scale_ratio: Mapped[int]
+    label: Mapped[str] = mapped_column(String(255), default="")
+    status: Mapped[str] = mapped_column(String(16), default="candidate")  # candidate | confirmed | rejected
+    note: Mapped[str] = mapped_column(String(2000), default="")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    decided_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Measurement(Base):
+    """Phase 5B: one deterministic measurement over geometry primitives (Decimal; real value only on confirmed scale)."""
+    __tablename__ = "measurements"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    drawing_id: Mapped[uuid.UUID] = fk("drawings")
+    page_no: Mapped[int]
+    kind: Mapped[str] = mapped_column(String(24))  # length|perimeter|area|count|distance|spacing|chainage_interval
+    geometry_ids: Mapped[list] = mapped_column(JSON)
+    value_paper: Mapped[Decimal] = mapped_column(Numeric(24, 6))
+    paper_unit: Mapped[str] = mapped_column(String(8))
+    value_real: Mapped[Decimal | None] = mapped_column(Numeric(24, 6))
+    real_unit: Mapped[str | None] = mapped_column(String(8))
+    scale_ratio: Mapped[int | None]
+    scale_source: Mapped[str | None] = mapped_column(String(64))
+    formula: Mapped[str] = mapped_column(String(2000), default="")
+    details: Mapped[dict | None] = mapped_column(JSON)
+    method: Mapped[str] = mapped_column(String(32), default="geometry-5B.1")
+    status: Mapped[str] = mapped_column(String(16), default="computed")  # computed | confirmed | rejected
+    note: Mapped[str] = mapped_column(String(2000), default="")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    decided_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

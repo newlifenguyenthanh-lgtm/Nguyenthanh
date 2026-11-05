@@ -132,3 +132,15 @@ def test_vector_geometry_on_postgres(pg, monkeypatch):
     assert [g["length_pt"] for g in border] == ["3904.0000"]
     runs = client.get(f"{B}/drawings/{d['id']}/geometry/axis-runs?page=1", headers=a).json()
     assert runs and all(r["geometry_ids"] for r in runs)
+
+
+def test_measurements_on_postgres(pg, monkeypatch):
+    from tests.geometry_helpers import sheet
+    use_ocr(monkeypatch, FakeOcr())
+    client, _ = pg
+    a = login(client, "admin@pga.test", "pw-admin-1")
+    d = process(client, a, upload(client, a, sheet())["id"]).json()
+    client.post(f"{B}/drawings/{d['id']}/pages/1/calibration", json={"scale_ratio": 100}, headers=a)
+    g = next(x for x in client.get(f"{B}/drawings/{d['id']}/geometry?kind=line", headers=a).json() if x["length_pt"] == "720.0000")
+    m = client.post(f"{B}/measurements", json={"drawing_id": d["id"], "kind": "length", "geometry_ids": [g["id"]]}, headers=a).json()
+    assert m["value_real"] == "25.400000" and client.get(f"{B}/measurements/{m['id']}", headers=a).json()["value_real"] == "25.400000"

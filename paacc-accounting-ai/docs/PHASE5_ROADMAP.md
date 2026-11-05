@@ -4,7 +4,7 @@
 |---|---|---|---|
 | **5A** Trích xuất hình học vector | primitive, hệ toạ độ, hình chữ nhật mảnh → line, trùng lặp/chồng lấn, `raster_only`, API, lớp phủ UI + review, chỉ số phòng Kỹ thuật, golden geometry | **Xong** (commit 5A) | R1: 94/94 đối chiếu raster |
 | **5A.1** | Phát hiện mã hoá TCVN3/VNI/UTF-8 lỗi trên text trích xuất (không tự sửa; cờ trên mục + cảnh báo trang) | **Xong** | W4: 8/9 phát hiện, 0 dương tính giả trên W1–W3; chuyển đổi chờ bảng mã kiểm chứng |
-| 5B Measurement engine | `scale_regions` (nhiều tỷ lệ trên 1 trang, do kỹ sư xác nhận); đo chiều dài/polyline/cung/chu vi/diện tích/đếm/khoảng cách/bước lặp bằng Decimal; bảng `measurements`; "có thể bị che" (z-order); xác nhận/sửa số đo trong UI | Kế hoạch | cần bản vẽ có tỷ lệ |
+| **5B** Measurement engine | `scale_regions` (nhiều tỷ lệ trên 1 trang, do kỹ sư xác nhận); đo chiều dài/polyline/cung/chu vi/diện tích/đếm/khoảng cách/bước lặp bằng Decimal; bảng `measurements`; "có thể bị che" (z-order); xác nhận/sửa số đo trong UI | **Xong** (tối thiểu, xem PHASE5B_MEASUREMENT_ENGINE.md); z-order + UI vẽ vùng tỷ lệ còn lại | cần bản vẽ có tỷ lệ |
 | 5C Association + lý trình | dimension text ↔ đường kích thước (gần nhất + hướng + kẹp giữa 2 đường gióng); nhãn/quy cách/tham chiếu ↔ đối tượng; parse `Km a+bbb`, khoảng, trái/phải, hướng tuyến; `AMBIGUOUS` khi điểm số thấp; `CONFLICT` khi lý trình ≠ hình học | Kế hoạch | W4 (lý trình) + bản vẽ tuyến |
 | 5D Nhận dạng cấu kiện | xem bảng phân tầng bên dưới | Kế hoạch | cần bản vẽ ATGT/hạ tầng |
 | 5E Geometry → BOQ | ứng viên khối lượng từ phép đo đã xác nhận → `generate.py` (nguồn "geometry"), provenance đầy đủ, trùng lặp mặt bằng/chi tiết, xuất Excel 2 layout | Kế hoạch | đối chiếu W4 |

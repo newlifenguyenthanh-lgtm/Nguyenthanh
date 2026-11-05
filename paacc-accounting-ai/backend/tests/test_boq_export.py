@@ -140,3 +140,79 @@ def test_multi_page_export_names_the_sheet_of_each_item(env, monkeypatch):
     wb = openpyxl.load_workbook(io.BytesIO(env.get(f"{B}/boq-exports/{exp['id']}/download", headers=qs).content))
     sheets = {(r[8].value, r[7].value) for r in wb["BOQ"].iter_rows(min_row=4) if r[14].value}
     assert sheets == {(1, "KC-01"), (2, "KC-02")}
+
+
+# ---------------------------------------------------------------- Phase 4.1: company BOQ template layout
+def company_export(env, h, boq_id):
+    exp = env.post(f"{B}/boqs/{boq_id}/exports?layout=company_kl", headers=h)
+    assert exp.status_code == 201, exp.text
+    e = exp.json()
+    return e, env.get(f"{B}/boq-exports/{e['id']}/download", headers=h).content
+
+
+def quotation_boq(env, monkeypatch):
+    use_ocr(monkeypatch, FakeOcr())
+    qs = login(env, "qs_engineer@a.test", "pw-x")
+    from tests.drawing_helpers import process, upload
+    d = process(env, qs, upload(env, qs, pf.quotation_pdf())["id"]).json()
+    boq = make_boq(env, qs, [d["id"]]).json()
+    for i in boq["items"]:
+        ok = not i["has_blocking"]
+        env.post(f"{B}/boqs/{boq['id']}/items/{i['id']}/review",
+                 json={"decision": "accept" if ok else "reject", "note": "đã kiểm tra" if ok else "thiếu khối lượng"}, headers=qs)
+    return qs, env.get(f"{B}/boqs/{boq['id']}", headers=qs).json()
+
+
+def test_company_layout_structure_matches_template_spec(env, monkeypatch):
+    from app.boq import company_layout as CL
+    qs, boq = quotation_boq(env, monkeypatch)
+    e, data = company_export(env, qs, boq["id"])
+    assert e["layout"] == "company_kl" and "_TongHop" in e["filename"]
+    wb = openpyxl.load_workbook(io.BytesIO(data))
+    assert wb.sheetnames == ["Tong hop", "BOQ", "Tính chi tiết", "Truy vết nguồn"] and wb.active.title == "Tong hop"
+    ws = wb["Tong hop"]
+    assert [ws[f"{c}2"].value for c in "ABCDE"] == ["STT", "HẠNG MỤC", "ĐƠN VỊ", "TỔNG KHỐI LƯỢNG", "GHI CHÚ"]
+    assert {"A2:A3", "B2:B3", "C2:C3", "D2:D3", "E2:E3"} <= {str(r) for r in ws.merged_cells.ranges}
+    assert ws["A2"].fill.fgColor.rgb == "FFC0C0C0" and ws["B2"].font.name == "Times New Roman" and ws["B2"].font.b
+    assert [round(ws.column_dimensions[c].width, 1) for c in "ABCDE"] == [24.1, 52.7, 12.2, 25.6, 27.2]
+    assert ws.print_title_rows == "$1:$3" and ws.page_setup.orientation == "landscape" and str(ws.page_setup.paperSize) == ws.PAPERSIZE_A3
+    rows = [[ws.cell(r, c).value for c in range(1, 7)] for r in range(4, ws.max_row + 1)]
+    stt = [r[0] for r in rows if r[0]]
+    assert stt[:3] == ["I", "1", "2"] and "3.1" in stt and "3.2" in stt and "4.1" in stt
+    by_desc = {r[1]: (n + 4, r) for n, r in enumerate(rows)}
+    hdr_row, hdr = by_desc["Tôn lượn sóng"]
+    assert hdr[0] == "3" and hdr[3] is None and ws[f"A{hdr_row}"].fill.fgColor.rgb == "FFFFFF00"  # level-1 group: yellow, no total
+    asm_row, asm = by_desc["Tôn sóng làm mới loại B-1"]
+    assert asm[0] == "3.1" and ws[f"B{asm_row}"].font.b and asm[3].startswith("='Tính chi tiết'!B") and asm[2] == "m"
+    comp_row, comp = next((n + 4, r) for n, r in enumerate(rows) if r[1] == "Cột thép D140x4.5x2500")
+    assert ws[f"B{comp_row}"].font.i and comp[0] is None  # assembly components: italic, no STT (as in the template)
+    assert ws[f"D{comp_row}"].number_format == CL.NUMBER_FORMAT
+    assert comp[5].startswith("tr.1") or "tr.1" in comp[5]  # traceability extension column F
+    assert "Hạng mục chưa có khối lượng" not in by_desc  # rejected rows are not in the company sheet
+    assert ws.print_area.endswith(f"$E${ws.max_row}") or "$E$" in ws.print_area  # column F outside the print area
+
+
+@pytest.mark.skipif(not SOFFICE, reason="LibreOffice not installed")
+def test_company_layout_formulas_recalculate_to_engine_values(env, monkeypatch, tmp_path):
+    qs, boq = quotation_boq(env, monkeypatch)
+    _, data = company_export(env, qs, boq["id"])
+    src = tmp_path / "company.xlsx"
+    src.write_bytes(data)
+    subprocess.run([SOFFICE, f"-env:UserInstallation=file://{tmp_path}/lo", "--headless", "--calc", "--convert-to",
+                    "xlsx:Calc MS Excel 2007 XML", "--outdir", str(tmp_path / "out"), str(src)], check=True, capture_output=True, timeout=180)
+    ws = openpyxl.load_workbook(tmp_path / "out" / "company.xlsx", data_only=True)["Tong hop"]
+    got = {}
+    for r in range(4, ws.max_row + 1):
+        trace = ws.cell(r, 6).value
+        if trace and ws.cell(r, 4).value is not None:
+            got[str(trace).split("| ")[-1]] = D(str(ws.cell(r, 4).value)).quantize(D("0.0001"))
+    expected = {i["id"]: D(i["quantity"]) for i in boq["items"] if i["review_status"] == "accepted"}
+    assert got == expected and len(got) == 12
+
+
+def test_company_layout_groups_annotation_items_by_category(env, ctx):
+    e, data = company_export(env, ctx["qs"], ctx["boq"]["id"])
+    ws = openpyxl.load_workbook(io.BytesIO(data))["Tong hop"]
+    heads = [ws.cell(r, 2).value for r in range(4, ws.max_row + 1) if ws.cell(r, 1).value]
+    assert heads[:4] == ["Bê tông", "Cốt thép", "Thép hộp", "Bản mã / thép tấm"]  # synthesised groups for drawing annotations
+    assert env.post(f"{B}/boqs/{ctx['boq']['id']}/exports?layout=nope", headers=ctx["qs"]).status_code == 422

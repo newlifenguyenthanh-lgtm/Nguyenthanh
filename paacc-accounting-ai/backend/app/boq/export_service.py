@@ -30,7 +30,7 @@ def _slug(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9]+", "_", s).strip("_")[:60] or "BOQ"
 
 
-def export_boq(db: Session, user: User, boq: Boq) -> BoqExport:
+def export_boq(db: Session, user: User, boq: Boq, layout: str = "paacc") -> BoqExport:
     items = list(db.scalars(select(BoqItem).where(BoqItem.boq_id == boq.id).order_by(BoqItem.item_no)))
     sources = list(db.scalars(select(BoqSource).where(BoqSource.boq_id == boq.id)))
     drawings = {s.drawing_id: db.get(Drawing, s.drawing_id) for s in sources}
@@ -63,7 +63,8 @@ def export_boq(db: Session, user: User, boq: Boq) -> BoqExport:
             formula_text=i.formula_text, review_status=i.review_status, origin=i.origin, notes=i.notes, flags=i.flags or [],
             drawing_label=sheet.get((i.drawing_id, i.page_no), labels.get(i.drawing_id, "")) if i.drawing_id else "Kỹ sư nhập",
             page_no=i.page_no, bbox=i.bbox,
-            source_text=src_text, item_id=str(i.id), unit_system=i.unit_system))
+            source_text=src_text, item_id=str(i.id), unit_system=i.unit_system, group_path=i.group_path or [],
+            is_coded_row=bool(i.group_path and i.group_path[-1].get("is_item"))))
     project = db.get(Project, boq.project_id) if boq.project_id else None
     now = dt.datetime.now(dt.timezone.utc)
     submitted_by = db.get(User, boq.submitted_by) if boq.submitted_by else None
@@ -73,22 +74,23 @@ def export_boq(db: Session, user: User, boq: Boq) -> BoqExport:
                       submitted=f"{submitted_by.email} – {_vn(boq.submitted_at)}" if submitted_by else "",
                       decided=f"{decided_by.email} – {_vn(boq.decided_at)}" if decided_by else "",
                       decision_note=boq.decision_note, exported_by=user.email, exported_at=_vn(now), sources=src_meta)
-    data = build_workbook(meta, rows)
+    data = build_workbook(meta, rows, layout)
     digest, key = save_bytes(str(user.company_id), data)
-    suffix = "" if boq.status == "approved" else "_NHAP"
+    suffix = ("" if boq.status == "approved" else "_NHAP") + ("_TongHop" if layout == "company_kl" else "")
     slug = _slug(boq.title)
     filename = f"{'' if slug.upper().startswith('BOQ') else 'BOQ_'}{slug}_v{boq.version_no}{suffix}_{now.astimezone(VN_TZ).strftime('%Y%m%d_%H%M%S')}.xlsx"
     exp = BoqExport(company_id=boq.company_id, boq_id=boq.id, project_id=boq.project_id, boq_version_no=boq.version_no,
                     boq_status=boq.status, filename=filename, sha256=digest, size_bytes=len(data), storage_key=key,
-                    item_count=len(items), created_by=user.id)
+                    item_count=len(items), layout=layout, created_by=user.id)
     db.add(exp)
     db.flush()
-    audit(db, user, "export", "boq", boq.id, {"export_id": str(exp.id), "sha256": digest, "status": boq.status, "version_no": boq.version_no})
+    audit(db, user, "export", "boq", boq.id, {"export_id": str(exp.id), "sha256": digest, "status": boq.status, "version_no": boq.version_no,
+                                                "layout": layout})
     return exp
 
 
 def export_dict(e: BoqExport) -> dict:
     return {"id": str(e.id), "boq_id": str(e.boq_id), "project_id": str(e.project_id) if e.project_id else None,
             "boq_version_no": e.boq_version_no, "boq_status": e.boq_status, "filename": e.filename, "sha256": e.sha256,
-            "size_bytes": e.size_bytes, "item_count": e.item_count, "created_by": str(e.created_by) if e.created_by else None,
+            "size_bytes": e.size_bytes, "item_count": e.item_count, "layout": e.layout, "created_by": str(e.created_by) if e.created_by else None,
             "created_at": e.created_at.isoformat() if e.created_at else None}

@@ -1,7 +1,7 @@
 import uuid
 from decimal import Decimal, InvalidOperation
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -312,11 +312,12 @@ XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 @router.post("/boqs/{bid}/exports", status_code=201)
-def create_export(bid: uuid.UUID, user: User = Depends(require("boq:read")), db: Session = Depends(get_db)) -> dict:
+def create_export(bid: uuid.UUID, layout: str = Query("paacc", pattern="^(paacc|company_kl)$"),
+                  user: User = Depends(require("boq:read")), db: Session = Depends(get_db)) -> dict:
     b = get_boq(db, bid, user)
     if b.status != "approved" and not has_perm(user.role, "boq:write"):
         raise HTTPException(403, "Chỉ người lập BOQ được xuất bản nháp; người xem chỉ xuất BOQ đã phê duyệt")
-    e = export_boq(db, user, b)
+    e = export_boq(db, user, b, layout)
     db.commit()
     return export_dict(e)
 

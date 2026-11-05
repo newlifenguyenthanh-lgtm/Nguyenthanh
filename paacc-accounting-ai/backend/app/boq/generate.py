@@ -293,6 +293,8 @@ def candidates_from_table(table: dict, drawing_id: str, ctx: TableContext | None
             flags.append(Flag("component_of_parent", "info",
                               f"Thành phần của hạng mục {parent['code']} ({parent['title']}) – không phải khối lượng cộng thêm"))
         path = ctx.path()
+        if coded:
+            path[-1] = {**path[-1], "is_item": True}  # this row is itself the coded assembly (e.g. "4.1"), not a heading
         row_boxes = [c for c in (cells[r] if r < len(cells) else []) if c]
         bbox = [min(c[0] for c in row_boxes), min(c[1] for c in row_boxes), max(c[2] for c in row_boxes), max(c[3] for c in row_boxes)] \
             if row_boxes else [table["bbox"][0], table["bbox"][1], table["bbox"][2], table["bbox"][3]]

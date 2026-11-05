@@ -317,4 +317,5 @@ class BoqExport(Base):
     size_bytes: Mapped[int]
     storage_key: Mapped[str] = mapped_column(String(255))
     item_count: Mapped[int]
+    layout: Mapped[str] = mapped_column(String(32), default="paacc", server_default="paacc")  # paacc | company_kl
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))

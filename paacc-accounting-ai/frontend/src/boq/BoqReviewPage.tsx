@@ -48,8 +48,8 @@ export default function BoqReviewPage() {
   }
   const updateItem = (it: BoqItem) => { load(); setOpen(it.id); };
   const note = () => (document.getElementById("boq-note") as HTMLInputElement | null)?.value ?? "";
-  async function exportExcel() {
-    try { await api(`/boqs/${boq!.id}/exports`, { method: "POST" }); setMsg(""); loadExports(); }
+  async function exportExcel(layout: "paacc" | "company_kl") {
+    try { await api(`/boqs/${boq!.id}/exports?layout=${layout}`, { method: "POST" }); setMsg(""); loadExports(); }
     catch (e) { setMsg(errorText(e)); }
   }
   async function download(e: BoqExport) {
@@ -79,11 +79,12 @@ export default function BoqReviewPage() {
           <button className="danger" onClick={() => act("/decision", { decision: "return", note: note() })}>Trả lại</button>
           <span className="muted">Cần quyền phê duyệt; người trình không được tự duyệt.</span></>}
         {boq.status === "approved" && <button onClick={() => act("/new-version", { reason: note() }, (b) => navigate(`/boqs/${b.id}`))}>Tạo phiên bản mới</button>}
-        <button className="ghost" onClick={exportExcel}>Xuất Excel{boq.status === "approved" ? "" : " (bản nháp)"}</button>
+        <button className="ghost" onClick={() => exportExcel("paacc")}>Xuất Excel{boq.status === "approved" ? "" : " (bản nháp)"}</button>
+        <button className="ghost" onClick={() => exportExcel("company_kl")}>Xuất theo mẫu công ty (Tổng hợp KL)</button>
       </div>
       {exports.length > 0 && <details><summary>Lịch sử xuất Excel ({exports.length})</summary>
         <ul className="list">{exports.map((e) => <li key={e.id}><button className="ghost" onClick={() => download(e)}>{e.filename}</button>
-          <span className="muted"> · v{e.boq_version_no} · {BOQ_STATUS[e.boq_status] ?? e.boq_status} · {e.item_count} hạng mục · {(e.size_bytes / 1024).toFixed(0)} KB · SHA-256 {e.sha256.slice(0, 12)}…</span></li>)}</ul></details>}
+          <span className="muted"> · v{e.boq_version_no} · {BOQ_STATUS[e.boq_status] ?? e.boq_status} · {e.layout === "company_kl" ? "mẫu công ty" : "mẫu PAACC"} · {e.item_count} hạng mục · {(e.size_bytes / 1024).toFixed(0)} KB · SHA-256 {e.sha256.slice(0, 12)}…</span></li>)}</ul></details>}
       {msg && <p className="error">{msg}</p>}
 
       <details><summary>Quy tắc đo bóc (thập phân {dec}, tỷ trọng thép {boq.rules.steel_density} kg/m³, hao hụt theo danh mục)</summary>

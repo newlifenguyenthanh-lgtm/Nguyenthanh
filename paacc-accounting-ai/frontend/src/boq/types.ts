@@ -18,4 +18,4 @@ export interface Boq {
 export interface ModuleField { name: string; label_vi: string; kind: string }
 export interface ModuleSpec { key: string; title_vi: string; category: string; out_unit: string; dimensional: boolean; fields: ModuleField[] }
 export interface HistoryRow { version: number; action: string; reason: string; at: string | null; quantity: string | null; review_status: string; inputs: Record<string, string | null> }
-export interface BoqExport { id: string; boq_version_no: number; boq_status: string; filename: string; sha256: string; size_bytes: number; item_count: number; created_at: string | null }
+export interface BoqExport { id: string; boq_version_no: number; boq_status: string; filename: string; sha256: string; size_bytes: number; item_count: number; created_at: string | null; layout?: string }

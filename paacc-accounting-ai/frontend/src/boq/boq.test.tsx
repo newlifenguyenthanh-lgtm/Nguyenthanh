@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import BoqReviewPage from "./BoqReviewPage";
-import type { Boq, BoqItem } from "./types";
+import type { Boq, BoqExport, BoqItem } from "./types";
 
 // Synthetic fixtures only.
 const blocked: BoqItem = {
@@ -27,7 +27,7 @@ const modules = { modules: [{ key: "concrete_prism", title_vi: "Bê tông", cate
   fields: [{ name: "length", label_vi: "Chiều dài", kind: "dim" }, { name: "width", label_vi: "Chiều rộng", kind: "dim" },
     { name: "height", label_vi: "Chiều cao", kind: "dim" }, { name: "count", label_vi: "Số lượng", kind: "count" }] }] };
 
-const exp = { id: "e1", boq_version_no: 1, boq_status: "draft", filename: "BOQ_KC_v1_NHAP_20261104.xlsx", sha256: "a".repeat(64), size_bytes: 20480, item_count: 2, created_at: null };
+const exp: BoqExport = { id: "e1", boq_version_no: 1, boq_status: "draft", filename: "BOQ_KC_v1_NHAP_20261104.xlsx", sha256: "a".repeat(64), size_bytes: 20480, item_count: 2, created_at: null, layout: "paacc" };
 let exportsList: typeof exp[] = [];
 let calls: { url: string; method: string; body: unknown }[];
 let current: Boq;
@@ -43,7 +43,11 @@ beforeEach(() => {
     if (url === "/boqs/b1/submit") return json({ detail: "Còn 2 hạng mục chưa rà soát (STT 1, 2)" }, 409);
     if (url === "/boqs/b1/decision") return json({ ...current, status: "approved" });
     if (url === "/boqs/b1/exports" && method === "GET") return json(exportsList);
-    if (url === "/boqs/b1/exports" && method === "POST") { exportsList = [exp, ...exportsList]; return json(exp, 201); }
+    if (url.startsWith("/boqs/b1/exports?layout=") && method === "POST") {
+      const layout = url.split("=")[1];
+      exportsList = [{ ...exp, id: layout, layout, filename: layout === "company_kl" ? "BOQ_KC_v1_NHAP_TongHop.xlsx" : exp.filename }, ...exportsList];
+      return json(exportsList[0], 201);
+    }
     return json({ detail: "not found" }, 404);
   }));
 });
@@ -102,7 +106,10 @@ describe("BOQ Excel export", () => {
     show();
     fireEvent.click(await screen.findByText("Xuất Excel (bản nháp)"));
     expect(await screen.findByText("BOQ_KC_v1_NHAP_20261104.xlsx")).toBeTruthy();
-    expect(screen.getByText(/v1 · Nháp · 2 hạng mục · 20 KB/)).toBeTruthy();
-    expect(calls.some((c) => c.url === "/boqs/b1/exports" && c.method === "POST")).toBe(true);
+    expect(screen.getByText(/v1 · Nháp · mẫu PAACC · 2 hạng mục · 20 KB/)).toBeTruthy();
+    expect(calls.some((c) => c.url === "/boqs/b1/exports?layout=paacc" && c.method === "POST")).toBe(true);
+    fireEvent.click(screen.getByText("Xuất theo mẫu công ty (Tổng hợp KL)"));
+    expect(await screen.findByText("BOQ_KC_v1_NHAP_TongHop.xlsx")).toBeTruthy();
+    expect(calls.some((c) => c.url === "/boqs/b1/exports?layout=company_kl")).toBe(true);
   });
 });

@@ -62,6 +62,8 @@ class ExportItem:
     source_text: str
     item_id: str
     unit_system: str | None
+    group_path: list[dict] = field(default_factory=list)
+    is_coded_row: bool = False  # the item row itself carries a source code (e.g. "4.1" assembly)
 
 
 @dataclass
@@ -107,7 +109,8 @@ def _expr_to_excel(expr: str, cells: dict[str, str]) -> str:
     return re.sub(r"\{(\w+)\}", sub, expr)
 
 
-def build_workbook(meta: ExportMeta, items: list[ExportItem]) -> bytes:
+def build_workbook(meta: ExportMeta, items: list[ExportItem], layout: str = "paacc") -> bytes:
+    """layout 'paacc' (default) or 'company_kl' (company 'Tong hop' quantity sheet first; see company_layout.py)."""
     dec = int(meta.rules.get("decimals", 3))
     fmt = _num_format(dec)
     wb = Workbook()
@@ -269,6 +272,16 @@ def build_workbook(meta: ExportMeta, items: list[ExportItem]) -> bytes:
         ws.sheet_properties.pageSetUpPr.fitToPage = True
         ws.oddFooter.center.text = f"{meta.title} v{meta.version_no} – {STATUS_VI.get(meta.status, meta.status)} – Trang &P/&N"
     boq.print_title_rows = "3:3"
+    if layout == "company_kl":
+        from app.boq import company_layout as CL
+        company = wb.create_sheet(CL.SHEET, 0)
+        CL.build_sheet(company, meta.title, meta.version_no, STATUS_VI.get(meta.status, meta.status), items, result_cell,
+                       "Tính chi tiết", CATEGORY_VI)
+        company.oddFooter.center.text = f"{meta.title} v{meta.version_no} – {STATUS_VI.get(meta.status, meta.status)} – Trang &P/&N"
+        wb.remove(summary)  # PAACC's own summary is replaced by the company sheet
+        wb.active = 0
+    elif layout != "paacc":
+        raise ValueError(f"unknown export layout '{layout}'")
     wb.properties.title = f"BOQ {meta.title} v{meta.version_no}"
     wb.properties.creator = "PAACC Construction AI"
     buf = io.BytesIO()

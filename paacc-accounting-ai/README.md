@@ -16,7 +16,7 @@ inventory, site management, accounting – with a 3D virtual office as the navig
 verified against an official source and recorded in `tax_rule_sources`. Agents for tax domains are registered
 but return `not_implemented`. No real company data or secrets belong in this repo.
 
-Docs: `docs/PHASE1_DESIGN.md` (architecture & roadmap status), `docs/PHASE4_DRAWINGS_TAKEOFF.md`, `docs/VIRTUAL_OFFICE.md`, `docs/DATABASE.md`.
+Docs: `docs/PHASE1_DESIGN.md` (architecture & roadmap status), `docs/PHASE4_DRAWINGS_TAKEOFF.md`, `docs/REAL_DRAWING_VALIDATION_REPORT.md`, `docs/BOQ_TEMPLATE_MAPPING.md`, `test-data/golden-dataset/README.md`, `docs/VIRTUAL_OFFICE.md`, `docs/DATABASE.md`.
 
 ## Run
 ```bash

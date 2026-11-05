@@ -1,7 +1,8 @@
 # Phase 4 – PDF Drawing AI, Quantity Takeoff, BOQ Review & Excel Export
 
-Status: **foundation complete and verified end-to-end on synthetic drawings**. It has **not yet been validated on real
-construction drawings**: accuracy claims for real sheets must wait for anonymised samples (see §7).
+Status: foundation complete. **Phase 4.1** validated it on the first supplied real document: a supplier quotation PDF, not a
+construction drawing. The results are in `docs/REAL_DRAWING_VALIDATION_REPORT.md`, and the company template mapping is in `docs/BOQ_TEMPLATE_MAPPING.md`.
+Drawing-specific features (title block, scale, geometry) are still **unvalidated on real drawings**.
 
 ## 1. Pipeline
 

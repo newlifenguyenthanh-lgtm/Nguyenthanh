@@ -78,12 +78,13 @@ def run(input_dir: Path, out_dir: Path, label: str) -> dict:
                 if sub.status_code == 200:
                     dec = c.post(f"{B}/boqs/{boq['id']}/decision", json={"decision": "approve", "note": "golden-run"}, headers=director)
                     rec["steps"]["approve"] = dec.status_code
-                exp = c.post(f"{B}/boqs/{boq['id']}/exports", headers=qs)
-                rec["steps"]["export"] = exp.status_code
-                if exp.status_code == 201:
-                    x = c.get(f"{B}/boq-exports/{exp.json()['id']}/download", headers=qs)
-                    (out_dir / f"{pdf.stem}.{label}.xlsx").write_bytes(x.content)
-                    rec["export"] = exp.json()
+                for layout in ("paacc", "company_kl"):
+                    exp = c.post(f"{B}/boqs/{boq['id']}/exports?layout={layout}", headers=qs)
+                    rec["steps"][f"export_{layout}"] = exp.status_code
+                    if exp.status_code == 201:
+                        x = c.get(f"{B}/boq-exports/{exp.json()['id']}/download", headers=qs)
+                        (out_dir / f"{pdf.stem}.{label}.{layout}.xlsx").write_bytes(x.content)
+                        rec[f"export_{layout}"] = exp.json()
                 rec["boq_final"] = c.get(f"{B}/boqs/{boq['id']}", headers=qs).json()
         (out_dir / f"{pdf.stem}.{label}.json").write_text(json.dumps(rec, ensure_ascii=False, indent=1, default=str))
         summary["documents"].append({"file": pdf.name, "steps": rec["steps"]})

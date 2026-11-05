@@ -90,4 +90,97 @@ Correctly handled at baseline:
 - no false drawing number, title or revision
 - the full review → four-eyes approval → Excel export workflow
 
-*(Sections 3–8 are written after tuning; see below.)*
+
+## 3. Changes made (minimum necessary, each with regression tests)
+
+| Commit | Fixes | Tests added |
+|---|---|---|
+| `72fe921` | golden-dataset runner + comparator, baseline recorded | comparator unit tests, golden gate (skipped without data) |
+| `0240a12` | B7–B13 analysis rules: no footer scales; `round`/`bolt`/`length_sum` dimensions, 4-part sections; separator resolved only by evidence inside the same token; implausible member lengths flagged; `3M` not metres; road-safety specs | 13 parametrised/unit tests on synthetic strings |
+| `0f5df2f` | B1–B6 schedule tables: header-row search, combined headers, headings vs data rows (with leaf detection so missing data is never hidden), hierarchy across page breaks (`group_path`, migration 0007), assembly components flagged, no annotation rules inside tables, no bare-number dimensions in tables, ATGT categories, warnings for doubtful values in descriptions | pure-function tests + synthetic 2-page quotation PDF end-to-end |
+| `ce5afca` | export in the company quantity-BOQ layout (`layout=company_kl`, migration 0008) | structure/format, LibreOffice recalculation, category grouping |
+
+Principles kept:
+- The Decimal engine stays authoritative; no LLM was added.
+- Ambiguous values remain unresolved unless the same token proves the reading.
+- Engineers confirm via review flags.
+- Duplicates are flagged, never deleted.
+
+## 4. Results: baseline vs final (same document, verified denominators)
+
+| Category | Denominator | Baseline (`c0f6bfa`) | Final (`ce5afca`) |
+|---|---|---|---|
+| Page metadata | 12 | 11 | **12** |
+| Dimensions | 60 | 19 | **60** |
+| Dimension false positives | – | 27 (26 table quantities + `3M`) | **0** |
+| Materials / specifications | 7 | 0 | **7** |
+| BOQ rows (description + unit + quantity exact) | 50 | 0 (25 partial) | **50** |
+| BOQ hierarchy (group) context | 50 | 0 | **50** |
+| BOQ false-positive items | – | 10 | **0** |
+| Duplicate / overlap cases | 38 | 0 | **38** |
+| Excel export, PAACC layout: recalculated quantities = approved quantities | 50 | (exported, not verified at baseline) | **50 / 50** |
+| Excel export, company layout: recalculated quantities = approved quantities | 50 | n/a | **50 / 50** |
+
+**How to read the final column: it is not a real-world accuracy figure.**
+- The rules were tuned on this one document and scored on the same document; there is no held-out set.
+- The final numbers prove that the 13 diagnosed failure causes are fixed and guarded by regression tests (here and in the private golden gate).
+- They do **not** prove accuracy on other quotations, and say nothing about construction drawings, which were not supplied.
+
+## 5. Per document
+
+### R1 – supplier quotation (2 vector pages)
+- **Correct (final):** all 50 quantity lines with description, unit and Vietnamese-formatted quantity.
+  - The 9 group headings are recognised as structure.
+  - The hierarchy continues across the page break.
+  - 29 assembly components are flagged as such.
+  - The 9 rows with the same component names in other groups are *not* flagged as duplicates.
+  - All 60 dimension tokens, all 7 specification tokens, and no false scale/number/title.
+- **Incorrect / missing (final):** none against the verified expectations.
+- **Ambiguous, kept ambiguous:** `L=6.100mm` (6100 mm or 6.1 mm; the takeoff workbook lists the same post type twice with different lengths).
+- **Requires engineer confirmation (flagged):**
+  - 5 fence-post lengths printed in mm but almost certainly metres (`L=1,89mm`, `L=1,09mm`).
+  - Any of the 6 BOQ items whose descriptions contain those values (non-blocking warning).
+  - Guardrail length: computed (panels) vs measured (takeoff) differ by 7 m.
+  - Fence bolt specifications differ between the quotation and the takeoff.
+- **Duplicate cases:** an assembly row and its components (quantity semantics vs pricing semantics). Validated: components are informational, not additive.
+
+### W1–W4 – workbooks
+- Not drawings, and not processed by the PDF pipeline.
+- Used as template (W4 `Tong hop` → company export layout) and as an independent quantity reference.
+- Source-data issues found: wrong units on a few lines, fractional counts, legacy TCVN3 text, external links, and two summary blocks with different totals for the same items.
+
+## 6. Still requires human confirmation (by design)
+- Scale and units on real drawings, always.
+- Any value flagged `ambiguous_number`, `implausible_value`, `description_value_unconfirmed`, `diameter_convention_mm`, `low_confidence_source`.
+- Accepting a `possible_duplicate` (a note is mandatory).
+- Choosing between conflicting sources (computed vs measured lengths, different revisions).
+- Approval of every BOQ by a second, authorised person.
+
+## 7. Confidentiality
+- **Not committed:** the uploaded files, the private expected values, the manifests, the run results, the rendered pages and the real-document exports. They are kept outside the repository (git-ignored golden-dataset folders).
+- **Committed:** structure, code, synthetic test data and this redacted report only.
+- `git log` and `git ls-files` contain no file from the upload.
+
+## 8. Not validated (needs real drawing PDFs)
+- Title blocks, drawing numbers and revisions, scale and units, dimensions on geometry.
+- OCR on real scanned drawings, CAD-font text (including TCVN3-encoded `.Vn*` fonts).
+- Duplicates across sheets, between detail and overview views, and between vector and scanned copies.
+
+### Quantities that need a geometry engine (not implemented, not faked)
+Road-safety drawings measure most quantities graphically. The takeoff workbook shows which ones:
+- road-marking areas (m²) from line lengths × widths and hatch areas
+- guardrail and fence lengths along the alignment
+- fence modules = length / module width
+- sign and post counts by symbol/block
+- foundation volumes from standard details
+
+None of these can be extracted today unless they are written as text or tabulated.
+
+### Geometry backlog
+1. Line/polyline length measurement on vector PDFs (with confirmed scale; `real_length_from_paper` exists).
+2. Area measurement and closed-polygon detection (hatches, marking polygons).
+3. Repeated-symbol / block detection (signs, posts, studs) with counts per sheet.
+4. Section/profile recognition (guardrail, fence, steel sections) from geometry + nearby text.
+5. Coordinate-based matching of text to geometry (dimension text ↔ dimension line ↔ object).
+6. Cross-sheet object matching (plan vs detail vs schedule) for duplicate detection.
+7. TCVN3/VNI → Unicode conversion for CAD-font text (high priority for Vietnamese CAD PDFs).

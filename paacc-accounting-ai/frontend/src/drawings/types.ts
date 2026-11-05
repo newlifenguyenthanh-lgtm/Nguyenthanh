@@ -13,9 +13,17 @@ export interface Page {
   disciplines: Classified[] | null; view_types: Classified[] | null;
   scale_candidates: Candidate[] | null; scale_status: string; scale_ratio: number | null;
   units_candidates: Candidate[] | null; units_status: string; units: string | null; calibrated_at: string | null;
+  geometry_status?: string; geometry_stats?: { by_kind?: Record<string, number> } | null;
 }
 export interface DrawingDetail extends DrawingSummary { document_title: string; pages: Page[]; item_counts: Record<string, number> }
 export interface Item {
   id: string; page_no: number; kind: string; text: string; bbox: [number, number, number, number];
   source: string; confidence: number | null; data: Record<string, unknown> & { flags?: string[] };
+}
+export interface GeometryPrim {
+  id: string; page_no: number; kind: string; points: [string, string][]; closed: boolean; bbox: number[];
+  length_pt: string | null; area_pt2: string | null; stroke_width: number | null; derived_from: string | null;
+  approximate: boolean; flags: string[]; duplicate_of: string | null; status: string; review_note: string;
+  layer: string | null; source: { path_index: number; item_index: number };
+  length_paper_mm?: string; length_real_m?: string | null; real_basis?: string;
 }

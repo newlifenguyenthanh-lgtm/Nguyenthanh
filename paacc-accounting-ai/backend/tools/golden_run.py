@@ -62,6 +62,9 @@ def run(input_dir: Path, out_dir: Path, label: str) -> dict:
             full = c.get(f"{B}/drawings/{d['id']}", headers=qs).json()
             rec["drawing"] = full
             rec["items"] = c.get(f"{B}/drawings/{d['id']}/items?limit=5000", headers=qs).json()
+            rec["geometry_summary"] = c.get(f"{B}/drawings/{d['id']}/geometry/summary", headers=qs).json()
+            rec["geometry_axis_runs"] = {p["page_no"]: c.get(f"{B}/drawings/{d['id']}/geometry/axis-runs?page={p['page_no']}", headers=qs).json()
+                                         for p in rec["geometry_summary"]["pages"]}
             boq_r = c.post(f"{B}/boqs", json={"title": pdf.stem, "drawing_ids": [d["id"]]}, headers=qs)
             rec["steps"]["boq_generate"] = boq_r.status_code
             if boq_r.status_code == 201:

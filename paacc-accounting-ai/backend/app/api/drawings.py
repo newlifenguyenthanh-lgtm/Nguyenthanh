@@ -18,12 +18,23 @@ router = APIRouter()
 
 
 def analysis_hook():
-    """Resolved at call time so Milestone 4B can plug in drawing analysis without changing this module."""
-    try:
-        from app.pdf.analysis_service import analyze_drawing
-        return analyze_drawing
-    except ImportError:
-        return None
+    """Post-extraction steps inside the same processing task: 4B text analysis, then 5A vector geometry.
+    A geometry failure never fails the drawing: affected pages get geometry_status='failed'."""
+    from app.config import get_settings
+    from app.geometry.service import extract_into
+    from app.pdf.analysis_service import analyze_drawing
+
+    def run(db: Session, d: Drawing, extraction=None):
+        analyze_drawing(db, d, extraction)
+        if get_settings().geometry_on_process:
+            db.flush()
+            try:
+                with db.begin_nested():
+                    extract_into(db, d)
+            except Exception as e:  # noqa: BLE001
+                for p in db.scalars(select(DrawingPage).where(DrawingPage.drawing_id == d.id)):
+                    p.geometry_status, p.geometry_stats = "failed", {"error": f"{type(e).__name__}: {e}"[:500]}
+    return run
 
 
 class DrawingIn(BaseModel):
@@ -47,7 +58,7 @@ def page_dict(p: DrawingPage) -> dict:
                                       "image_coverage", "vector_paths", "ocr_used", "ocr_engine", "ocr_mean_confidence")}
     out["warnings"] = p.warnings or []
     for c in ("drawing_number", "title", "revision", "title_fields", "disciplines", "view_types", "scale_candidates",
-              "scale_status", "scale_ratio", "units_candidates", "units_status", "units"):
+              "scale_status", "scale_ratio", "units_candidates", "units_status", "units", "geometry_status", "geometry_stats", "page_frame"):
         out[c] = getattr(p, c)
     out["calibrated_at"] = p.calibrated_at.isoformat() if p.calibrated_at else None
     out["calibrated_by"] = str(p.calibrated_by) if p.calibrated_by else None

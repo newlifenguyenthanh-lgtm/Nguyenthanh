@@ -1,9 +1,10 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api";
+import GeometryPanel from "./GeometryPanel";
 import PageViewer, { KIND_COLOR } from "./PageViewer";
 import { CAL_STATUS, DISCIPLINE, FINDING_VI, FLAG_VI, ITEM_KIND, PAGE_KIND, REL_VI, STATUS_VI, VIEW, pct } from "./labels";
-import type { DrawingDetail, Finding, Item, Page } from "./types";
+import type { DrawingDetail, Finding, GeometryPrim, Item, Page } from "./types";
 
 const DEFAULT_KINDS = ["dimension", "count", "spec", "symbol", "reference", "region"];
 
@@ -78,12 +79,19 @@ export default function DrawingDetailPage() {
   const [kinds, setKinds] = useState<string[]>(focusItem ? [...DEFAULT_KINDS, "text", "table"] : DEFAULT_KINDS);
   const [sel, setSel] = useState<string | undefined>(focusItem);
   const [err, setErr] = useState("");
+  const [showGeo, setShowGeo] = useState(false);
+  const [geo, setGeo] = useState<GeometryPrim[]>([]);
+  const [selGeo, setSelGeo] = useState<string>();
   const load = useCallback(() => api<DrawingDetail>(`/drawings/${id}`).then(setD).catch((e) => setErr(errorText(e))), [id]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     if (!d || d.status !== "processed") return;
     api<Item[]>(`/drawings/${id}/items?page=${pageNo}&kind=${kinds.join(",")}&limit=2000`).then(setItems).catch((e) => setErr(errorText(e)));
   }, [d, id, pageNo, kinds]);
+  useEffect(() => {
+    if (!showGeo || !d) { setGeo([]); return; }
+    api<GeometryPrim[]>(`/drawings/${id}/geometry?page=${pageNo}&limit=20000`).then(setGeo).catch((e) => setErr(errorText(e)));
+  }, [showGeo, d, id, pageNo]);
   const page = useMemo(() => d?.pages.find((p) => p.page_no === pageNo), [d, pageNo]);
   if (err) return <main><p className="error">{err}</p></main>;
   if (!d) return <main><p>Đang tải…</p></main>;
@@ -104,7 +112,10 @@ export default function DrawingDetailPage() {
           Trang {p.page_no}{p.drawing_number ? ` · ${p.drawing_number}` : ""}</button>))}</div>
       {page && <div className="drawing-layout">
         <div>
-          <PageViewer drawingId={d.id} page={page} items={items} selectedId={sel} onSelect={setSel} />
+          <PageViewer drawingId={d.id} page={page} items={items} selectedId={sel} onSelect={setSel}
+            geometry={geo} selectedGeo={selGeo} onSelectGeo={setSelGeo} />
+          <label className="row"><input type="checkbox" checked={showGeo} onChange={(e) => setShowGeo(e.target.checked)} />
+            Hiện hình học vector ({page.geometry_status ?? "—"}{page.geometry_stats?.by_kind ? `: ${Object.entries(page.geometry_stats.by_kind).map(([k, v]) => `${k} ${v}`).join(", ")}` : ""})</label>
           <div className="row legend">{Object.keys(ITEM_KIND).map((k) => (
             <label key={k}><input type="checkbox" checked={kinds.includes(k)} onChange={() => toggle(k)} />
               <i className="dot" style={{ background: KIND_COLOR[k] }} />{ITEM_KIND[k]} {d.item_counts[k] != null ? `(${d.item_counts[k]})` : ""}</label>))}</div>
@@ -116,6 +127,7 @@ export default function DrawingDetailPage() {
             {" · "}Bộ môn: {page.disciplines?.map((x) => `${DISCIPLINE[x.value] ?? x.value} (${x.basis})`).join(", ") || "—"}
             {" · "}Dạng: {page.view_types?.map((x) => VIEW[x.value] ?? x.value).join(", ") || "—"}</p>
           {page.warnings.length > 0 && <p className="error">Cảnh báo: {page.warnings.join(", ")}</p>}
+          {selGeo && <GeometryPanel id={selGeo} onChanged={(g) => setGeo((all) => all.map((x) => (x.id === g.id ? { ...x, status: g.status } : x)))} />}
           <Calibration drawingId={d.id} page={page} onDone={load} />
           <div className="scroll items"><table><thead><tr><th>Loại</th><th>Văn bản gốc</th><th>Giá trị</th><th>Tin cậy</th><th>Nguồn</th><th>Cờ</th></tr></thead>
             <tbody>{items.filter((i) => i.kind !== "text" || kinds.includes("text")).map((it) => (

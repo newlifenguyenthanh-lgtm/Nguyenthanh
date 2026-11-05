@@ -204,6 +204,10 @@ class DrawingPage(Base):
     units: Mapped[str | None] = mapped_column(String(8))  # set ONLY by human confirmation
     calibrated_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
     calibrated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # --- vector geometry (Phase 5A)
+    geometry_status: Mapped[str] = mapped_column(String(24), default="not_extracted", server_default="not_extracted")
+    geometry_stats: Mapped[dict | None] = mapped_column(JSON)
+    page_frame: Mapped[dict | None] = mapped_column(JSON)  # rotation, boxes, PAGE->DISPLAY matrix
 
 
 class ExtractedItem(Base):
@@ -319,3 +323,37 @@ class BoqExport(Base):
     item_count: Mapped[int]
     layout: Mapped[str] = mapped_column(String(32), default="paacc", server_default="paacc")  # paacc | company_kl
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+
+
+class GeometryPrimitive(Base):
+    """One vector primitive of a drawing page (Phase 5A). Coordinates: DISPLAY space, PDF points, top-left origin,
+    stored as exact decimal strings; bbox floats only for spatial filtering. Never deleted when duplicated."""
+    __tablename__ = "geometry_primitives"
+    company_id: Mapped[uuid.UUID] = fk("companies")
+    drawing_id: Mapped[uuid.UUID] = fk("drawings")
+    page_no: Mapped[int] = mapped_column(index=True)
+    kind: Mapped[str] = mapped_column(String(16), index=True)  # line|polyline|polygon|rect|fill_region|curve|circle
+    points: Mapped[list] = mapped_column(JSON)  # [["x","y"], ...]
+    closed: Mapped[bool] = mapped_column(default=False)
+    x0: Mapped[float]
+    y0: Mapped[float]
+    x1: Mapped[float]
+    y1: Mapped[float]
+    length_pt: Mapped[Decimal | None] = mapped_column(Numeric(18, 4))
+    area_pt2: Mapped[Decimal | None] = mapped_column(Numeric(20, 4))
+    stroke_width: Mapped[float | None]
+    stroke_color: Mapped[str | None] = mapped_column(String(9))
+    fill_color: Mapped[str | None] = mapped_column(String(9))
+    layer: Mapped[str | None] = mapped_column(String(255))
+    path_index: Mapped[int] = mapped_column(default=0)
+    item_index: Mapped[int] = mapped_column(default=0)
+    derived_from: Mapped[str | None] = mapped_column(String(32))
+    approximate: Mapped[bool] = mapped_column(default=False)
+    flags: Mapped[list | None] = mapped_column(JSON)
+    duplicate_of: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("geometry_primitives.id"))
+    overlaps: Mapped[list | None] = mapped_column(JSON)  # ids of collinear overlapping primitives
+    extra: Mapped[dict | None] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(16), default="extracted")  # extracted|confirmed|rejected|ambiguous
+    review_note: Mapped[str] = mapped_column(String(2000), default="")
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    reviewed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

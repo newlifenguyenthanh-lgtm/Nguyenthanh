@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     max_upload_mb: int = 100
     boq_four_eyes: bool = True  # submitter may not approve their own BOQ
     pdf_max_pages: int = 200
+    geometry_on_process: bool = True  # extract vector geometry during drawing processing (Phase 5A)
     ocr_enabled: bool = True
     ocr_dpi: int = 300
     ocr_max_side_px: int = 7000

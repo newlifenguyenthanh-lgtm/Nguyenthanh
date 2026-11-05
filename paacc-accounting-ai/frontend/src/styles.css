@@ -80,3 +80,7 @@ small.origin { color: #5b6675; } small.origin-engineer { color: #1f6feb; } small
 .flags { list-style: none; padding: 0; margin: 4px 0; } .flag-block { color: #b42318; } .flag-warn { color: #b35c00; } .flag-info { color: #5b6675; }
 pre.notes { white-space: pre-wrap; background: #fff; border: 1px solid #e3e8ef; padding: 6px; font-size: 12px; }
 table.hist { font-size: 12px; margin-top: 6px; }
+
+.geo-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+.geo-layer polyline, .geo-layer polygon { pointer-events: stroke; cursor: pointer; }
+.geo-layer polygon[fill]:not([fill='none']) { pointer-events: visibleStroke; }

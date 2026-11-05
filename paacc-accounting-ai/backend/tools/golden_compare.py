@@ -193,9 +193,25 @@ def compare(expected: dict, run: dict) -> dict:
         dup_rows.append({**case, "got_flags": codes, "status": st})
     out["duplicates"] = {"rows": dup_rows, "counts": dict(uc), "total": len(dup_rows), "accuracy_pct": pct(uc, len(dup_rows))}
 
+    # ---- vector geometry (Phase 5A): vector axis runs vs independently derived raster runs
+    if expected.get("geometry"):
+        from tools.raster_lines import match_axis_lines
+        gc, geo_rows = Counter(), []
+        for ep in expected["geometry"]["pages"]:
+            runs = [{"axis": r["axis"], "pos": float(r["pos"]), "start": float(r["start"]), "end": float(r["end"])}
+                    for r in (run.get("geometry_axis_runs") or {}).get(str(ep["page_no"]), run.get("geometry_axis_runs", {}).get(ep["page_no"], []))]
+            exp_runs = [r for r in ep["axis_lines"] if not r.get("excluded")]
+            m = match_axis_lines(runs, exp_runs, ep.get("tol_pos", 1.0), ep.get("tol_end", 2.0))
+            gc[CORRECT] += m["matched"]
+            gc[MISSING] += len(m["raster_only"])
+            geo_rows.append({"page": ep["page_no"], "expected": len(exp_runs), "matched": m["matched"],
+                             "missing": m["raster_only"], "vector_only": m["vector_only"]})
+        total = sum(r["expected"] for r in geo_rows)
+        out["geometry"] = {"rows": geo_rows, "counts": dict(gc), "total": total, "accuracy_pct": pct(gc, total),
+                           "false_positives": [v for r in geo_rows for v in r["vector_only"]]}
     out["pipeline_steps"] = run.get("steps")
     out["summary"] = {k: {"correct": out[k]["counts"].get(CORRECT, 0), "total": out[k]["total"], "accuracy_pct": out[k]["accuracy_pct"]}
-                      for k in ("metadata", "dimensions", "materials", "boq", "duplicates")}
+                      for k in ("metadata", "dimensions", "materials", "boq", "duplicates", "geometry") if k in out}
     out["summary"]["dimension_false_positives"] = len(out["dimensions"]["false_positives"])
     out["summary"]["boq_false_positive_items"] = len(out["boq"]["false_positives"])
     out["summary"]["group_context"] = out["boq"]["group_context"]

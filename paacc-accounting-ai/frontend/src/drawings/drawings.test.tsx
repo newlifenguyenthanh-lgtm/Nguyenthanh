@@ -23,6 +23,14 @@ const drawing: DrawingDetail = {
 const items: Item[] = [{ id: "i1", page_no: 1, kind: "dimension", text: "300x600", bbox: [100, 50, 200, 75], source: "analysis",
   confidence: 0.8, data: { type: "section", values: ["300", "600"], unit: null, flags: ["unit_not_stated"], from_source: "text" } }];
 
+const geometry = [
+  { id: "g1", page_no: 1, kind: "line", points: [["100", "100"], ["400", "100"]], closed: false, bbox: [100, 100, 400, 100],
+    length_pt: "300.0000", area_pt2: null, stroke_width: 0.6, derived_from: "filled_hairline_rect", approximate: false, flags: [],
+    duplicate_of: null, status: "extracted", review_note: "", layer: null, source: { path_index: 3, item_index: 0 } },
+  { id: "g2", page_no: 1, kind: "rect", points: [["10", "10"], ["50", "10"], ["50", "40"], ["10", "40"]], closed: true, bbox: [10, 10, 50, 40],
+    length_pt: "140.0000", area_pt2: "1200.0000", stroke_width: 1, derived_from: null, approximate: false, flags: [], duplicate_of: null,
+    status: "confirmed", review_note: "", layer: null, source: { path_index: 4, item_index: 0 } },
+];
 let calls: { url: string; method: string; body?: string }[];
 beforeEach(() => {
   calls = [];
@@ -34,6 +42,10 @@ beforeEach(() => {
     const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status });
     if (url.includes("/image")) return new Response(new Blob(["png"]), { status: 200 });
     if (url === "/drawings/d1") return json(drawing);
+    if (url.startsWith("/drawings/d1/geometry?")) return json(geometry);
+    if (url === "/geometry/g1" && method === "GET") return json({ ...geometry[0], length_paper_mm: "105.83", length_real_m: null,
+      real_basis: "Tỷ lệ trang chưa được kỹ sư xác nhận – không thể đổi sang kích thước thật" });
+    if (url === "/geometry/g1" && method === "PATCH") return json({ ...geometry[0], status: "ambiguous", review_note: "Không rõ" });
     if (url.startsWith("/drawings/d1/items")) return json(items);
     if (url.endsWith("/calibration")) return json({ ...page, scale_status: "confirmed", scale_ratio: 100, warnings: [] });
     if (url === "/drawings" && method === "GET") return json([]);
@@ -70,6 +82,25 @@ describe("drawing inspector", () => {
     await waitFor(() => expect(calls.some((c) => c.url.endsWith("/pages/1/calibration"))).toBe(true));
     const body = JSON.parse(calls.find((c) => c.url.endsWith("/calibration"))!.body!);
     expect(body).toEqual({ scale_ratio: 100, not_to_scale: false, units: "mm", note: "" });
+  });
+});
+
+describe("vector geometry overlay (Phase 5A)", () => {
+  it("draws primitives, shows backend measurement and records an ambiguity", async () => {
+    const { container } = render(<MemoryRouter initialEntries={["/drawings/d1"]}><Routes><Route path="/drawings/:id" element={<DrawingDetailPage />} /></Routes></MemoryRouter>);
+    await screen.findByText(/KC-01 – Rev A/);
+    fireEvent.click(screen.getByLabelText(/Hiện hình học vector/));
+    await waitFor(() => expect(container.querySelectorAll("[data-geo]").length).toBe(2));
+    expect(container.querySelector('svg[aria-label="Lớp hình học vector"]')!.getAttribute("viewBox")).toBe("0 0 1000 500");
+    expect(container.querySelector('polygon[data-geo="g2"]')!.getAttribute("stroke")).toBe("#27ae60");
+    fireEvent.click(container.querySelector('[data-geo="g1"]')!);
+    expect(await screen.findByText(/300.0000 pt · 105.83 mm trên giấy/)).toBeTruthy();
+    expect(screen.getByText(/chưa được kỹ sư xác nhận/)).toBeTruthy();  // no real length without a confirmed scale
+    expect(screen.getByText(/suy ra từ filled_hairline_rect/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Ghi chú hình học"), { target: { value: "Không rõ" } });
+    fireEvent.click(screen.getByText("Không rõ"));
+    await waitFor(() => expect(calls.some((c) => c.url === "/geometry/g1" && c.method === "PATCH")).toBe(true));
+    expect(JSON.parse(calls.find((c) => c.method === "PATCH")!.body!)).toEqual({ status: "ambiguous", note: "Không rõ" });
   });
 });
 

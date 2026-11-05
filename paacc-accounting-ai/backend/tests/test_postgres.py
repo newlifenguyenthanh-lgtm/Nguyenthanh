@@ -120,3 +120,15 @@ def test_boq_export_on_postgres(pg, monkeypatch, tmp_path):
     wb = openpyxl.load_workbook(io.BytesIO(client.get(f"{B}/boq-exports/{exp['id']}/download", headers=a).content))
     assert wb.sheetnames == ["Tổng hợp", "BOQ", "Tính chi tiết", "Truy vết nguồn"]
     assert client.get(f"{B}/boqs/{boq['id']}/exports", headers=a).json()[0]["sha256"] == exp["sha256"]
+
+
+def test_vector_geometry_on_postgres(pg, monkeypatch):
+    use_ocr(monkeypatch, FakeOcr())
+    client, _ = pg
+    a = login(client, "admin@pga.test", "pw-admin-1")
+    d = process(client, a, upload(client, a, pf.vector_pdf())["id"]).json()
+    assert client.get(f"{B}/drawings/{d['id']}/geometry/summary", headers=a).json()["pages"][0]["geometry_status"] == "extracted"
+    border = client.get(f"{B}/drawings/{d['id']}/geometry?kind=rect&min_length_pt=3000", headers=a).json()
+    assert [g["length_pt"] for g in border] == ["3904.0000"]
+    runs = client.get(f"{B}/drawings/{d['id']}/geometry/axis-runs?page=1", headers=a).json()
+    assert runs and all(r["geometry_ids"] for r in runs)

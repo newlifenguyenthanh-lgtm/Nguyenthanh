@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.agents.registry import AGENTS
 from app.models import (AITask, AuditLog, Boq, Contract, ContractAppendix, Department, DepartmentMember, Document,
-                        Drawing, Project, User)
+                        Drawing, DrawingPage, GeometryPrimitive, Project, User)
 from app.office.catalog import CATALOG, DEFAULT_DEPARTMENTS, default_layout
 from app.office.status import TaskView, agent_status, combine, utc
 
@@ -63,7 +63,13 @@ def _metrics(db: Session, cid: uuid.UUID, code: str, pending_total: int, now: dt
              ("drawings_failed", "Bản vẽ phân tích lỗi", drw("failed")),
              ("boq_draft", "BOQ nháp chờ rà soát", boq("draft", "returned")),
              ("boq_submitted", "BOQ chờ phê duyệt", boq("submitted")),
-             ("boq_approved", "BOQ đã phê duyệt", boq("approved"))]
+             ("boq_approved", "BOQ đã phê duyệt", boq("approved")),
+             ("geometry_pages", "Trang có hình học vector", _count(db, select(DrawingPage.id).where(
+                 DrawingPage.company_id == cid, DrawingPage.geometry_status == "extracted"))),
+             ("raster_pages", "Trang chỉ có ảnh quét (chưa có hình học)", _count(db, select(DrawingPage.id).where(
+                 DrawingPage.company_id == cid, DrawingPage.geometry_status == "raster_only"))),
+             ("geometry_ambiguous", "Đối tượng hình học cần xem lại", _count(db, select(GeometryPrimitive.id).where(
+                 GeometryPrimitive.company_id == cid, GeometryPrimitive.status == "ambiguous")))]
     elif code == "cad_design":
         m = [("drawing_docs", "Bản vẽ", docs("drawing"))]
     elif code == "estimation":

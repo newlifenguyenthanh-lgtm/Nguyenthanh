@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiBlob } from "../api";
-import type { Item, Page } from "./types";
+import { GEO_COLOR } from "./GeometryPanel";
+import type { GeometryPrim, Item, Page } from "./types";
 
 export const KIND_COLOR: Record<string, string> = {
   dimension: "#d9480f", count: "#e67700", spec: "#2b8a3e", symbol: "#5f3dc4", reference: "#1971c2",
@@ -8,8 +9,9 @@ export const KIND_COLOR: Record<string, string> = {
 };
 
 /** Rendered page with bounding boxes. bbox is in PDF points (displayed space) -> positioned in % of page size. */
-export default function PageViewer({ drawingId, page, items, selectedId, onSelect }:
-  { drawingId: string; page: Page; items: Item[]; selectedId?: string; onSelect: (id: string) => void }) {
+export default function PageViewer({ drawingId, page, items, selectedId, onSelect, geometry = [], selectedGeo, onSelectGeo }:
+  { drawingId: string; page: Page; items: Item[]; selectedId?: string; onSelect: (id: string) => void;
+    geometry?: GeometryPrim[]; selectedGeo?: string; onSelectGeo?: (id: string) => void }) {
   const [url, setUrl] = useState<string>("");
   const [err, setErr] = useState("");
   useEffect(() => {
@@ -24,6 +26,18 @@ export default function PageViewer({ drawingId, page, items, selectedId, onSelec
   return (
     <div className="page-view" style={{ aspectRatio: `${W} / ${H}` }} aria-label={`Trang ${page.page_no}`}>
       {url ? <img src={url} alt={`Trang ${page.page_no}`} /> : <p className="muted">{err || "Đang tải ảnh…"}</p>}
+      {geometry.length > 0 && (
+        <svg className="geo-layer" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label="Lớp hình học vector">
+          {geometry.map((g) => {
+            const pts = g.points.map(([x, y]) => `${x},${y}`).join(" ");
+            const sel = g.id === selectedGeo;
+            const props = { "data-geo": g.id, onClick: () => onSelectGeo?.(g.id), stroke: sel ? "#e8590c" : GEO_COLOR[g.status] ?? "#1f6feb",
+              strokeWidth: sel ? 3 : 1.5, vectorEffect: "non-scaling-stroke" as const, fill: g.kind === "fill_region" ? "#1f6feb22" : "none",
+              strokeDasharray: g.status === "rejected" ? "4 3" : undefined };
+            return g.closed ? <polygon key={g.id} {...props} points={pts} /> : <polyline key={g.id} {...props} points={pts} />;
+          })}
+        </svg>
+      )}
       {items.map((it) => {
         const [x0, y0, x1, y1] = it.bbox;
         const sel = it.id === selectedId;

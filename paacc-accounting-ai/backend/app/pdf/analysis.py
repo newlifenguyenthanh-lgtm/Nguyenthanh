@@ -86,21 +86,56 @@ def _num(raw: str) -> tuple[str | None, bool]:
 
 
 # ---------------------------------------------------------------- dimensions, specs, symbols, references
+# Order matters: earlier patterns claim their span first.
+_BOLT_CUE = re.compile(r"BU\s*LONG|BULONG|\bBOLT")
 _DIM_PATTERNS = [
-    ("section", re.compile(rf"(?<![\d.,])({NUM})\s*X\s*({NUM})(?:\s*X\s*({NUM}))?(?:\s*{UNIT})?")),
+    # M16x35, M8x100 (metric bolt: diameter x length)
+    ("bolt", re.compile(rf"(?<![A-Z0-9])M\s?(\d{{1,2}})\s*X\s*({NUM})(?:\s*{UNIT})?")),
+    # "Bu lông D20x180mm" - D-notation is a bolt only when the line talks about bolts
+    ("bolt_d", re.compile(rf"(?<![A-Z0-9.])D\s?(\d{{1,2}})\s*X\s*({NUM})(?:\s*{UNIT})?")),
+    # round / tubular sections: D88.3, D1.4m, D140x4.5x2500, D75x3,25, F75 (outer diameter [x thickness [x length]])
+    ("round", re.compile(rf"(?<![A-Z0-9.])[DF]\s?(\d+(?:[.,]\d+)?)((?:\s*X\s*{NUM}){{0,2}})(?:\s*{UNIT})?")),
+    # sections / sheet sizes: 300x600, 50x50x2, 170x65x5x1010, KT1780x700mm
+    ("section", re.compile(rf"(?<![\w.,])(?:KT\s?)?({NUM}(?:\s*X\s*{NUM}){{1,3}})(?:\s*{UNIT})?")),
     ("bar", re.compile(r"(?:Ø|\bPHI)\s*(\d{1,2})(?:\s*(?:A|@)\s*(\d{2,4}))?")),
+    # L=(4700+5200)mm - a member made of several lengths
+    ("length_sum", re.compile(rf"\b(L|H|DAI)\s*=\s*\(\s*({NUM}(?:\s*\+\s*{NUM})+)\s*\)(?:\s*{UNIT})?")),
     ("labeled", re.compile(rf"\b(L|H|B|R|T|DAI|CAO|RONG|DAY)\s*=\s*({NUM})(?:\s*{UNIT})?")),
     ("count", re.compile(r"\b(SL|N|SO\s+LUONG)\s*=\s*(\d+)\b")),
     ("stated_quantity", re.compile(rf"(?<![\w.,])({NUM})\s*(M2|M3)\b")),
     ("value_with_unit", re.compile(rf"(?<![\w.,=])({NUM})\s*{UNIT}")),
 ]
 _BARE = re.compile(r"\d{2,6}(?:[.,]\d+)?")
+_SPLIT_X = re.compile(r"\s*X\s*")
+_LENGTH_LABELS = {"L", "H", "DAI"}
+
+
+def _token_values(raws: list[str]) -> tuple[list[str | None], list[bool], bool]:
+    """Parse the numbers of ONE dimension token. If another number in the same token proves that '.' or ','
+    is the decimal separator (e.g. '4.10' in '6.014x4.10m'), ambiguous numbers using that separator are
+    read the same way. Returns (values, ambiguous flags, resolved_from_token)."""
+    parsed = [parse_number(r) for r in raws]
+    decimal_seps = {r for r in (".", ",") if any(
+        (raw.count(r) == 1 and raw.count("." if r == "," else ",") == 0 and not amb)
+        for raw, (v, amb) in zip(raws, parsed) if v is not None and r in raw)}
+    resolved = False
+    values, ambs = [], []
+    for raw, (v, amb) in zip(raws, parsed):
+        if amb and len(decimal_seps) == 1:
+            sep = next(iter(decimal_seps))
+            if raw.count(sep) == 1 and raw.count("." if sep == "," else ",") == 0:
+                v, amb, resolved = Decimal(raw.replace(sep, ".")), False, True
+        values.append(format(v, "f") if v is not None else None)
+        ambs.append(amb)
+    return values, ambs, resolved
 
 
 def find_dimensions(line: Line) -> list[Finding]:
     F = fold(line.text)
     taken: list[tuple[int, int]] = []
     out: list[Finding] = []
+    bolt_line = bool(_BOLT_CUE.search(F))
+    mixed_case = any(c.islower() for c in line.text)
 
     def free(a, b):
         return all(b <= x or a >= y for x, y in taken)
@@ -109,42 +144,73 @@ def find_dimensions(line: Line) -> list[Finding]:
         for m in rx.finditer(F):
             if not free(m.start(), m.end()):
                 continue
-            taken.append((m.start(), m.end()))
             raw = line.text[m.start():m.end()]
             flags: list[str] = []
-            if typ == "section":
-                vals = [_num(g) for g in m.groups()[:3] if g]
-                unit = m.group(4).lower() if m.group(4) else None
-                data = {"type": "section", "values": [v for v, _ in vals], "unit": unit, "unit_explicit": unit is not None}
+            if typ in ("bolt", "bolt_d"):
+                if typ == "bolt_d" and not bolt_line:
+                    continue
+                values, ambs, res = _token_values([m.group(1), m.group(2)])
+                unit = m.group(3).lower() if m.group(3) else None
+                data = {"type": "bolt", "values": values, "unit": unit, "unit_explicit": unit is not None,
+                        "note": "đường kính x chiều dài bu lông"}
+                base = 0.9 if unit else 0.8
+            elif typ == "round":
+                rest = [x for x in _SPLIT_X.split(m.group(2).strip()) if x] if m.group(2).strip() else []
+                unit = m.group(3).lower() if m.group(3) else None
+                first = m.group(1)
+                if not rest and not unit and "." not in first and "," not in first and len(first) < 2:
+                    continue  # D1, D2 ... are element marks (e.g. beam D1), not diameters
+                values, ambs, res = _token_values([first] + rest)
+                data = {"type": "round", "values": values, "unit": unit, "unit_explicit": unit is not None,
+                        "note": "đường kính ngoài [x chiều dày [x chiều dài]]"}
+                base = 0.9 if unit else 0.75
+            elif typ == "section":
+                values, ambs, res = _token_values(_SPLIT_X.split(m.group(1)))
+                unit = m.group(2).lower() if m.group(2) else None
+                data = {"type": "section", "values": values, "unit": unit, "unit_explicit": unit is not None}
                 base = 0.95 if unit else 0.8
             elif typ == "bar":
-                data = {"type": "bar", "diameter": m.group(1), "spacing": m.group(2), "unit": None,
-                        "unit_explicit": False, "note": "Ký hiệu Ø thường tính bằng mm theo quy ước; cần xác nhận"}
-                base = 0.85
-            elif typ == "labeled":
-                v, amb = _num(m.group(2))
+                taken.append((m.start(), m.end()))
+                out.append(Finding("dimension", raw, {"type": "bar", "diameter": m.group(1), "spacing": m.group(2), "unit": None,
+                                   "unit_explicit": False, "note": "Ký hiệu Ø thường tính bằng mm theo quy ước; cần xác nhận"},
+                                   round(0.85 * line.source_conf, 3), line, ["unit_not_stated"]))
+                continue
+            elif typ == "length_sum":
+                values, ambs, res = _token_values(re.split(r"\s*\+\s*", m.group(2)))
                 unit = m.group(3).lower() if m.group(3) else None
-                data = {"type": "labeled", "label": m.group(1), "values": [v], "unit": unit, "unit_explicit": unit is not None}
-                vals = [(v, amb)]
+                data = {"type": "length_sum", "label": m.group(1), "values": values, "unit": unit, "unit_explicit": unit is not None}
+                base = 0.9 if unit else 0.75
+            elif typ == "labeled":
+                values, ambs, res = _token_values([m.group(2)])
+                unit = m.group(3).lower() if m.group(3) else None
+                data = {"type": "labeled", "label": m.group(1), "values": values, "unit": unit, "unit_explicit": unit is not None}
                 base = 0.95 if unit else 0.8
             elif typ == "count":
+                taken.append((m.start(), m.end()))
                 out.append(Finding("count", raw, {"type": "count", "label": m.group(1), "count": m.group(2)}, 0.9 * line.source_conf, line))
                 continue
             elif typ == "stated_quantity":
-                v, amb = _num(m.group(1))
-                data = {"type": "stated_quantity", "values": [v], "unit": m.group(2).lower(), "unit_explicit": True}
-                vals = [(v, amb)]
+                values, ambs, res = _token_values([m.group(1)])
+                data = {"type": "stated_quantity", "values": values, "unit": m.group(2).lower(), "unit_explicit": True}
                 base = 0.9
             else:
-                v, amb = _num(m.group(1))
-                data = {"type": "value_with_unit", "values": [v], "unit": m.group(2).lower(), "unit_explicit": True}
-                vals = [(v, amb)]
+                unit_raw = line.text[m.start(2):m.end(2)]
+                if mixed_case and unit_raw == "M":
+                    continue  # "3M" in mixed-case text is a name/brand, metres are written "m"
+                values, ambs, res = _token_values([m.group(1)])
+                data = {"type": "value_with_unit", "values": values, "unit": m.group(2).lower(), "unit_explicit": True}
                 base = 0.9
-            if typ != "bar" and any(a for _, a in vals):
+            taken.append((m.start(), m.end()))
+            if any(ambs):
                 flags.append("ambiguous_number")
                 base = 0.3
+            if res:
+                data["separator_resolved_in_token"] = True
             if not data.get("unit_explicit"):
                 flags.append("unit_not_stated")
+            if (data.get("label") in _LENGTH_LABELS and data.get("unit") == "mm"
+                    and any(v is not None and Decimal(v) < 10 for v in data["values"])):
+                flags.append("implausible_value")  # e.g. post length "L=1,89mm" - probably metres; engineer must confirm
             out.append(Finding("dimension", raw, data, round(base * line.source_conf, 3), line, flags))
     if not out and _BARE.fullmatch(F.strip()):
         v, amb = _num(F.strip())
@@ -156,22 +222,32 @@ def find_dimensions(line: Line) -> list[Finding]:
 
 
 _CONCRETE_CUE = re.compile(r"BE\s*TONG|\bBT\b|CONCRETE|\bMAC\b|CAP\s+DO\s+BEN")
+_REFLECTIVE_CUE = re.compile(r"PHAN\s+QUANG|REFLECT")
+_GUARDRAIL_CUE = re.compile(r"TON\s+(?:LUON\s+)?SONG|HO\s+LAN|GUARDRAIL")
+_FENCE_CUE = re.compile(r"HANG\s+RAO|KHUNG|LUOI|FENCE")
+# (category, pattern, required cue on the same line or None)
 _SPEC_PATTERNS = [
-    ("concrete_grade", re.compile(r"\bC\d{2}/\d{2}\b"), False),
-    ("concrete_grade", re.compile(r"\b(?:B\s?\d{2}(?:[.,]5)?|M\s?\d{3})\b"), True),
-    ("rebar_grade", re.compile(r"\b(?:CB\s?\d{3}-?[VT]?|C(?:II|III|IV)|SD\s?\d{3}|GR\s?\d{2})\b"), False),
-    ("steel_grade", re.compile(r"\b(?:SS\s?400|Q\s?(?:235|345)[A-D]?|A\s?36|S\s?(?:235|275|355)(?:JR|J0|J2)?|CT\s?3[A-Z]*)\b"), False),
-    ("steel_box", re.compile(rf"\b(?:THEP\s+)?(?:HOP|RHS|SHS)\s+({NUM}\s*X\s*{NUM}\s*X\s*{NUM})"), False),
-    ("plate", re.compile(r"\b(?:BAN\s+MA|THEP\s+TAM|PLATE)\b|\bPL\s?(\d{1,3}(?:[.,]\d)?)\b"), False),
-    ("steel_profile", re.compile(rf"\b([IHU])\s?(\d{{3}})(?:\s*X\s*{NUM})*\b|\b([LV])\s?(\d{{2,3}}\s*X\s*\d{{1,3}}(?:\s*X\s*\d{{1,2}})?)\b"), False),
+    ("concrete_grade", re.compile(r"\bC\d{2}/\d{2}\b"), None),
+    ("concrete_grade", re.compile(r"\b(?:B\s?\d{2}(?:[.,]5)?|M\s?\d{3})\b"), _CONCRETE_CUE),
+    ("rebar_grade", re.compile(r"\b(?:CB\s?\d{3}-?[VT]?|C(?:II|III|IV)|SD\s?\d{3}|GR\s?\d{2})\b"), None),
+    ("steel_grade", re.compile(r"\b(?:SS\s?400|Q\s?(?:235|345)[A-D]?|A\s?36|S\s?(?:235|275|355)(?:JR|J0|J2)?|CT\s?3[A-Z]*)\b"), None),
+    ("steel_box", re.compile(rf"\b(?:THEP\s+)?(?:HOP|RHS|SHS)\s+({NUM}\s*X\s*{NUM}\s*X\s*{NUM})"), None),
+    ("plate", re.compile(r"\b(?:BAN\s+MA|THEP\s+TAM|PLATE)\b|\bPL\s?(\d{1,3}(?:[.,]\d)?)\b"), None),
+    # road safety (ATGT): sign codes per QCVN 41 (P.127, W.203c, R.302a, I.414, IE.453c, S.509, DP.135 ...)
+    ("traffic_sign", re.compile(r"(?<![A-Z0-9.])(?:IE|DP|P|R|W|I|S)\.\s?\d{3}[A-Z]?(?:\.\d)?(?![\d.])"), None),
+    ("reflective_sheeting", re.compile(r"\bMPQ\s?\d{3,4}\b"), None),
+    ("reflective_sheeting", re.compile(r"\bLOAI\s+(?:XI|X|IX|VIII|VII|VI|V|IV|III|II|I)\b"), _REFLECTIVE_CUE),
+    ("guardrail_type", re.compile(r"\bLOAI\s+([A-Z]-\d)\b"), _GUARDRAIL_CUE),
+    ("fence_type", re.compile(r"\bB40\b"), _FENCE_CUE),
+    ("steel_profile", re.compile(rf"\b([IHU])\s?(\d{{3}})(?:\s*X\s*{NUM})*\b|\b([LV])\s?(\d{{2,3}}\s*X\s*\d{{1,3}}(?:\s*X\s*\d{{1,2}})?)\b"), None),
 ]
 
 
 def find_specs(line: Line) -> list[Finding]:
     F = fold(line.text)
     out = []
-    for cat, rx, needs_cue in _SPEC_PATTERNS:
-        if needs_cue and not _CONCRETE_CUE.search(F):
+    for cat, rx, cue in _SPEC_PATTERNS:
+        if cue is not None and not cue.search(F):
             continue
         for m in rx.finditer(F):
             raw = line.text[m.start():m.end()]
@@ -224,7 +300,8 @@ _VALID = {
     "drawing_number": re.compile(r"[A-Z0-9][A-Z0-9 ./_-]{0,30}"),
     "revision": re.compile(r"[A-Z0-9]{1,4}\b"),
 }
-_SCALE_IN_TEXT = re.compile(r"(?<![\d/:.])1\s*[:/]\s*(\d{1,5})(?![\d:/])")
+_SCALE_IN_TEXT = re.compile(r"(?<![\d/:.])1\s*[:/]\s*(\d{1,5})(?![\d:/])")  # after a scale label
+_SCALE_UNLABELED = re.compile(r"(?<![\d/:.])1\s*:\s*(\d{1,5})(?![\d:/])")  # no label: only "1:N" (never "1/2" footers)
 _NTS = re.compile(r"\bN\.?\s?T\.?\s?S\b|KHONG\s+(?:THEO\s+)?TY\s+LE")
 _UNIT_VALUE = re.compile(r"\(?\s*(MM|CM|M)\b")
 
@@ -282,7 +359,7 @@ def title_block(lines: list[Line]) -> dict:
                             "bbox": [min(b[0] for b in xs), min(b[1] for b in xs), max(b[2] for b in xs), max(b[3] for b in xs)]}
     labeled_ratios = {c["ratio"] for c in scale_candidates}
     for ln in lines:  # unlabeled "1:100" anywhere on the sheet (e.g. under detail titles)
-        for sm in _SCALE_IN_TEXT.finditer(fold(ln.text)):
+        for sm in _SCALE_UNLABELED.finditer(fold(ln.text)):
             r = int(sm.group(1))
             if r not in labeled_ratios and not _LABELS["scale"].search(fold(ln.text)):
                 scale_candidates.append({"ratio": r, "labeled": False, "item_id": ln.id, "raw": ln.text, "confidence": round(0.6 * ln.source_conf, 3)})

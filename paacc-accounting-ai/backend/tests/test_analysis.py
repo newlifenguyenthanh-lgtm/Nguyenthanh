@@ -167,3 +167,81 @@ def test_duplicate_detection():
 def test_revision_rank():
     assert revision_rank("B") > revision_rank("A") and revision_rank("2") > revision_rank("1")
     assert revision_rank("") is None and revision_rank("??") is None
+
+
+# ---------------------------------------------------------------- Phase 4.1 regressions from real documents
+# Every case below reproduces a pattern seen in the supplied real quotation (synthetic strings, no confidential data).
+
+def all_dims(text, **kw):
+    return [f.data | {"flags": f.flags, "raw": f.raw} for f in find_dimensions(L(text, **kw)) if f.kind == "dimension"]
+
+
+def test_real_page_footer_is_not_a_scale():
+    # B7: a "1/2" page footer was taken as a 1:2 scale candidate
+    assert title_block([L("1/2", "f")])["scale_candidates"] == []
+    assert title_block([L("Trang 2/2", "f")])["scale_candidates"] == []
+    assert [c["ratio"] for c in title_block([L("MẶT CẮT 1-1 (1:50)", "a")])["scale_candidates"]] == [50]
+    assert [c["ratio"] for c in title_block([L("TỶ LỆ: 1/100", "a")])["scale_candidates"]] == [100]
+
+
+@pytest.mark.parametrize("text,typ,values,unit", [
+    ("Cột biển báo loại 1.1, cột D88.3, dày 2.9mm", "round", ["88.3"], None),       # B8: D-prefixed tube
+    ("Biển tròn D1.4m", "round", ["1.4"], "m"),
+    ("Cột thép D140x4.5x2500", "round", ["140", "4.5", "2500"], None),
+    ("Cột thân trên D75x3,25 L=1,89mm", "round", ["75", "3.25"], None),
+    ("Nắp cột D146x20mm", "round", ["146", "20"], "mm"),
+    ("Bu lông D20x180mm", "bolt", ["20", "180"], "mm"),                               # D-notation on a bolt line
+    ("Bulong M16x35", "bolt", ["16", "35"], None),
+    ("Bulong nở M8x100", "bolt", ["8", "100"], None),
+    ("Cột thép nối 170x65x5x1010", "section", ["170", "65", "5", "1010"], None),     # 4-part section
+    ("Khung lưới chống chói ống D34x3mm KT1780x700mm", "section", ["1780", "700"], "mm"),
+    ("Cột biển báo loại 1.5, cột D88.3, dày 2.9mm, L=(4700+5200)mm", "length_sum", ["4700", "5200"], "mm"),  # B11
+])
+def test_real_dimension_notations(text, typ, values, unit):
+    hit = [d for d in all_dims(text) if d["type"] == typ]
+    assert hit, all_dims(text)
+    d = hit[-1] if typ == "section" else hit[0]
+    assert d["values"] == values and d["unit"] == unit
+
+
+def test_beam_marks_are_not_diameters():
+    types = {d["type"] for d in all_dims("DẦM D1 300x600 L=6000 SL=4")}
+    assert "round" not in types and "section" in types
+
+
+def test_separator_resolved_inside_one_token():
+    # B9: '4.10' proves '.' is the decimal separator of the token '6.014x4.10m'
+    d = all_dims("Biển CN IE.450b (bxh = 6.014x4.10m)")[0]
+    assert d["values"] == ["6.014", "4.10"] and "ambiguous_number" not in d["flags"] and d["separator_resolved_in_token"]
+    # a lone '6.100' stays ambiguous - nothing in the token resolves it
+    lab = next(d for d in all_dims("Cột biển báo loại 1.3,cột D88.3, dày 2.9mm, L=6.100mm") if d["type"] == "labeled")
+    assert lab["values"] == [None] and "ambiguous_number" in lab["flags"]
+    # two ambiguous values cannot resolve each other
+    assert "ambiguous_number" in all_dims("Tấm 1.250x2.500m")[0]["flags"]
+
+
+def test_implausible_member_length_requires_engineer():
+    # B10: 'L=1,89mm' for a fence post is almost certainly 1.89 m - never accepted silently
+    d = next(x for x in all_dims("Cột thân trên D75x3,25 L=1,89mm") if x["type"] == "labeled")
+    assert d["values"] == ["1.89"] and "implausible_value" in d["flags"]
+    assert "implausible_value" not in next(x for x in all_dims("L=5150mm") if x["type"] == "labeled")["flags"]
+
+
+def test_brand_3m_is_not_three_metres():
+    # B12: mixed-case text writes metres as "m"; "3M" is a brand/name
+    assert all_dims("Đinh phản quang- 3M") == []
+    assert all_dims("Chiều cao cột 3m")[0]["values"] == ["3"]
+    assert all_dims("CAO 3M")[0]["unit"] == "m"  # all-caps CAD text: cannot tell, kept as metres
+
+
+def test_road_safety_specifications():
+    # B13: ATGT vocabulary
+    cats = lambda t: {(f.data["category"], f.raw) for f in find_specs(L(t))}
+    assert ("traffic_sign", "IE.453c") in cats("Biển CN IE.453c (bxh = 1.75x2.5m)")
+    assert ("traffic_sign", "W.203c") in cats("Biển W.203c")
+    assert ("reflective_sheeting", "MPQ 4000") in cats("tôn kẽm 3mm dán MPQ 4000")
+    assert ("reflective_sheeting", "loại XI") in cats("Dán phản quang màu vàng loại XI")
+    assert not any(c == "reflective_sheeting" for c, _ in cats("Cột biển báo loại 1.1"))  # 'loại' needs a sheeting cue
+    assert ("guardrail_type", "loại B-1") in cats("Tôn sóng làm mới loại B-1 (3 sóng)")
+    assert ("fence_type", "B40") in cats("Khung B40 1700x2725mm")
+    assert cats("Cột biển báo loại 1.1, cột D88.3, dày 2.9mm, L=5150mm") == set()

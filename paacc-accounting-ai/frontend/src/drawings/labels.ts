@@ -13,6 +13,7 @@ export const ITEM_KIND: Record<string, string> = {
 };
 export const FLAG_VI: Record<string, string> = {
   unit_not_stated: "Không ghi đơn vị", ambiguous_number: "Số mơ hồ (dấu phân cách)",
+  implausible_value: "Giá trị bất thường – cần kỹ sư xác nhận",
 };
 export const DISCIPLINE: Record<string, string> = {
   architectural: "Kiến trúc", structural: "Kết cấu", traffic: "Giao thông", infrastructure: "Hạ tầng", mep: "Cơ điện",
